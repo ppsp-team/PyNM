@@ -1,11 +1,14 @@
 #!/usr/bin/env python
 # coding=utf-8
 # ==============================================================================
-# title           : cNM.py
-# description     : Compute a centiles & LOESS Normative Model
+# title           : PyNM.py
+# description     : Compute a Centiles- & LOESS-based normative models
 # author          : Guillaume Dumas, Institut Pasteur
 # date            : 2019-06-03
-# notes           : data must contains at least 3 columns group, age, and score
+# notes           : the input dataframe must contains at least 3 columns:
+#                   "group" with controls marked as "CTR" and probands as "PROB"
+#                   "age" in days, and "score" which is the measure to model
+# licence         : BSD 3-Clause License
 # python_version  : 3.6
 # ==============================================================================
 
