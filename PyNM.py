@@ -5,9 +5,12 @@
 # description     : Compute a Centiles- & LOESS-based normative models
 # author          : Guillaume Dumas, Institut Pasteur
 # date            : 2019-06-03
-# notes           : the input dataframe must contains at least 3 columns:
-#                   "group" with controls marked as "CTR" and probands as "PROB"
-#                   "age" in days, and "score" which is the measure to model
+# notes           : the input dataframe must contains a column "group"
+#                   with controls marked as "CTR" and probands as "PROB". The --pheno_p is for the path to the
+#                   input dataframe. The --out_p flag is for the path to save the output dataframe, include filename
+#                   in 'filename.csv' format. The confounds columns for the gaussian process
+#                   model must be specified using the --confounds flag. The confound for the LOESS and centiles
+#                   models must be specified using the --conf flag.
 # licence         : BSD 3-Clause License
 # python_version  : 3.6
 # ==============================================================================
@@ -16,121 +19,218 @@ from tqdm import tqdm
 import pandas as pd
 import numpy as np
 import statsmodels.api as sm
+from argparse import ArgumentParser
 from statsmodels.sandbox.regression.predstd import wls_prediction_std
 from scipy.stats.mstats import mquantiles
 
-def PyNM(data, min_age=-1, max_age=-1, min_score=-1, max_score=-1, griddef_age = 365 / 8, kernel_age = 365 * 1.5):
-   
-    if min_age == -1:
-        min_age = np.min(data.loc[:, 'age'])
-    if max_age == -1:
-        max_age = np.max(data.loc[:, 'age'])
-    if min_score == -1:
-        min_score = np.min(data.loc[:, 'score'])
-    if max_score == -1:
-        max_score = np.max(data.loc[:, 'score'])
+from sklearn import gaussian_process
+from sklearn.gaussian_process.kernels import Matern, WhiteKernel, ConstantKernel, RBF, DotProduct
 
-    x = np.arange(min_age,
-                    max_age + kernel_age,
-                    griddef_age)
+def read_confounds(confounds):
+    #Find categorical values in confounds and clean format
+    categorical = []
+    for conf in confounds:
+        if ((conf[0:2]=='C(') & (conf[-1]==')')):
+            confounds.remove(conf)
+            categorical.append(conf[2:-1])
+            confounds.append(conf[2:-1])
+    return confounds,categorical
 
-    # CTR==True
-    sel = data.loc[(data.group == 'CTR'), ['age', 'score']].values
-    d = sel[:, :1]
+class PyNM:
+    def __init__(self,data,score,conf,confounds):
+        self.data = data
+        self.score = score
+        self.conf = conf
+        self.confounds = confounds
+        self.bins = None
+        self.bin_count = None
+        self.zm = None
+        self.zstd = None
+        self.zci = None
+        self.z = None
+        self.error_mea = None
+        self.error_med = None
+    
+        #Default values for age in days
+    def create_bins(self, min_age=-1, max_age=-1, min_score=-1, max_score=-1, bin_spacing = 365 / 8, bin_width = 365 * 1.5):
+        if min_age == -1:
+            min_age = data[self.conf].min()
+        if max_age == -1:
+            max_age = data[self.conf].max()
+        if min_score == -1:
+            min_score = data[self.score].min()
+        if max_score == -1:
+            max_score = data[self.score].max()
+        #if max age less than 300 assume age is in years not days
+        if max_age < 300:
+            bin_spacing = 1/8
+            bin_width = 1.5
+        
+        #define the bins (according to width by age)
+        self.bins = np.arange(min_age,max_age + bin_width,bin_spacing)
+        
+        #take the controls
+        ctr = self.data.loc[(self.data.group == 'CTR'), [self.conf, self.score]].to_numpy(dtype=np.float64)
+        #age of all the controls
+        ctr_conf = ctr[:, :1]
 
-    xcount = np.zeros(x.shape[0])
-    zm = np.zeros(x.shape[0])
-    zstd = np.zeros(x.shape[0])
-    zci = np.zeros([x.shape[0], 2])
-    z = np.zeros([x.shape[0], 101])
-    for i, xx in enumerate(x):
-        mu = np.array(xx)
-        w = (abs(d - mu) < kernel_age) * 1.
-        idx = [u for (u, v) in np.argwhere(w)]
-        YY = sel[idx, 1]
-        XX = sel[idx, 0] - mu
-        xcount[i] = len(idx)
-        if (~np.isnan(YY)).sum()>2:
-            mod = sm.WLS(YY, sm.tools.add_constant(XX),
-                            missing='drop',
-                            weight=w.flatten()[idx],
-                            hasconst=True).fit()
-            zm[i] = mod.params[0]
-            prstd, iv_l, iv_u = wls_prediction_std(mod, [0, 0])
-            zstd[i] = prstd
-            zci[i, :] = mod.conf_int()[0, :]  # [iv_l, iv_u]
-            z[i, :] = mquantiles(YY,
-                                    prob=np.linspace(0, 1, 101),
-                                    alphap=0.4,
-                                    betap=0.4)
-        else:
-            zm[i] = np.nan
-            zci[i] = np.nan
-            zstd[i] = np.nan
-            z[i] = np.nan
-
-    error_mea, error_med = 0, 0
-    rejected = 0
-    for i in range(sel.shape[1]):
-        idage = np.argmin(np.abs(sel[i, 1] - x))
-        error_mea += (sel[i, 0] - zm[idage])**2
-        error_med += (sel[i, 0] - z[idage, 50])**2
-    error_mea /= sel.shape[1]
-    error_med /= sel.shape[1]
-    error_mea = error_mea**0.5
-    error_med = error_med**0.5
-
-
-    def bins_num(r):
-        """Give the number of ctr used for this age bin."""
-        idage = np.argmin(np.abs(r['age'] - x))
-        return xcount[idage]
-
-
-    def loess_normative_model(r):
-        """Compute classical normative model."""
-        idage = np.argmin(np.abs(r['age'] - x))
-        m = zm[idage]
-        std = zstd[idage]
-        nmodel = (r['score'] - m) / std
-        return nmodel
-
-
-    def centiles_normative_model(r):
-        """Compute centiles normative model."""
-        idage = np.argmin(np.abs(r['age'] - x))
-        centiles = z[idage, :]
-        if r['score'] >= max(centiles):
-            result = 100
-        else:
-            if r['score'] < min(centiles):
-                result = 0
+        
+        self.bin_count = np.zeros(self.bins.shape[0])
+        self.zm = np.zeros(self.bins.shape[0]) #mean
+        self.zstd = np.zeros(self.bins.shape[0]) #standard deviation
+        self.zci = np.zeros([self.bins.shape[0], 2]) #confidence interval
+        self.z = np.zeros([self.bins.shape[0], 101]) #centiles
+        
+        for i, bin_center in enumerate(self.bins):
+            mu = np.array(bin_center) #bin_center value (age or conf)
+            bin_mask = (abs(ctr_conf - mu) < bin_width) * 1. #one hot mask
+            idx = [u for (u, v) in np.argwhere(bin_mask)]
+            
+            scores = ctr[idx,1]
+            adj_conf = ctr[idx, 0] - mu #confound relative to bin center
+            self.bin_count[i] = len(idx)
+            
+            #if more than 2 non NaN values do the model
+            if (~np.isnan(scores)).sum()>2:
+                mod = sm.WLS(scores, sm.tools.add_constant(adj_conf),missing='drop',weight=bin_mask.flatten()[idx],hasconst=True).fit()
+                self.zm[i] = mod.params[0] #mean
+                
+                #std and confidence intervals
+                prstd, iv_l, iv_u = wls_prediction_std(mod, [0, 0])
+                self.zstd[i] = prstd
+                self.zci[i, :] = mod.conf_int()[0, :]  # [iv_l, iv_u]
+                
+                #centiles
+                self.z[i, :] = mquantiles(scores,prob=np.linspace(0, 1, 101),alphap=0.4,betap=0.4)
             else:
-                result = np.argmin(r['score'] >= centiles)
+                self.zm[i] = np.nan
+                self.zci[i] = np.nan
+                self.zstd[i] = np.nan
+                self.z[i] = np.nan
+                
+        #mean squared error
+        self.error_mea, self.error_med = 0, 0
+        
+        #for age and score (cols of sel)
+        for i in range(ctr.shape[1]):
+            idage = np.argmin(np.abs(ctr[i, 1] - self.bins))
+            self.error_mea += (ctr[i, 0] - self.zm[idage])**2
+            self.error_med += (ctr[i, 0] - self.z[idage, 50])**2
+        self.error_mea /= ctr.shape[1]
+        self.error_med /= ctr.shape[1]
+        self.error_mea = self.error_mea**0.5
+        self.error_med = self.error_med**0.5
+        
+        return self.data, self.bins, self.bin_count, self.z, self.zm, self.zstd, self.zci
+    
+    def bins_num(self):
+        """Give the number of ctr used for the age bin each participant is in."""
+        if (self.error_mea==None):
+            self.create_bins()
+        dists = [np.abs(conf - self.bins) for conf in self.data[self.conf]]
+        idx = [np.argmin(d) for d in dists]
+        n_ctr = [self.bin_count[i] for i in idx]
+        self.data['participants'] = n_ctr
+        return n_ctr
+    
+    def loess_rank(self):
+        self.data.loc[(self.data.LOESS_nmodel <= -2), 'LOESS_rank'] = -2
+        self.data.loc[(self.data.LOESS_nmodel > -2) & (self.data.LOESS_nmodel <= -1), 'LOESS_rank'] = -1
+        self.data.loc[(self.data.LOESS_nmodel > -1) & (self.data.LOESS_nmodel <= +1), 'LOESS_rank'] = 0
+        self.data.loc[(self.data.LOESS_nmodel > +1) & (self.data.LOESS_nmodel <= +2), 'LOESS_rank'] = 1
+        self.data.loc[(self.data.LOESS_nmodel > +2), 'LOESS_rank'] = 2
+
+    def loess_normative_model(self):
+        """Compute classical normative model."""
+        if (self.error_mea==None):
+            self.create_bins()
+        dists = [np.abs(conf - self.bins) for conf in self.data[self.conf]]
+        idx = [np.argmin(d) for d in dists]
+        m = np.array([self.zm[i] for i in idx])
+        std = np.array([self.zstd[i] for i in idx])
+        nmodel = (self.data[self.score] - m) / std
+        self.data['LOESS_nmodel'] = nmodel
+        self.loess_rank()
+        return nmodel
+    
+    def centiles_rank(self):
+        self.data.loc[(self.data.Centiles_nmodel <= 5), 'Centiles_rank'] = -2
+        self.data.loc[(self.data.Centiles_nmodel > 5) & (self.data.Centiles_nmodel <= 25), 'Centiles_rank'] = -1
+        self.data.loc[(self.data.Centiles_nmodel > 25) & (self.data.Centiles_nmodel <= 75), 'Centiles_rank'] = 0
+        self.data.loc[(self.data.Centiles_nmodel > 75) & (self.data.Centiles_nmodel <= 95), 'Centiles_rank'] = 1
+        self.data.loc[(self.data.Centiles_nmodel > 95), 'Centiles_rank'] = 2
+    
+    def centiles_normative_model(self):
+        """Compute centiles normative model."""
+        if (self.error_mea==None):
+            self.create_bins()
+        dists = [np.abs(conf - self.bins) for conf in self.data[self.conf]]
+        idx = [np.argmin(d) for d in dists]
+        centiles = np.array([self.z[i] for i in idx])
+        
+        result = np.zeros(centiles.shape[0])
+        max_mask = self.data[self.score] >= np.max(centiles,axis=1)
+        min_mask = self.data[self.score] < np.min(centiles,axis=1)
+        else_mask = ~(max_mask | min_mask)
+        result[max_mask] = 100
+        result[min_mask] = 0        
+        result[else_mask] = np.array([np.argmin(self.data[self.score][i] >= centiles[i]) for i in range(self.data.shape[0])])[else_mask]
+        self.data['Centiles_nmodel'] = result
+        self.centiles_rank()
         return result
+    
+    def gp_normative_model(self,length_scale=1,nu=2.5):
+        ctr = self.data.loc[(self.data.group == 'CTR')]
+        ctr_mask = self.data.index.isin(ctr.index)
+        probands = self.data.loc[(self.data.group == 'PROB')]
+        prob_mask = self.data.index.isin(probands.index)
 
+        #Define confounds as matrix for prediction, dummy encode categorical variables
+        confounds,categorical = read_confounds(self.confounds)
+        
+        conf_mat = self.data[confounds]
+        conf_mat = pd.get_dummies(conf_mat,columns=categorical,drop_first=True)
+        conf_mat_cols = conf_mat.columns.tolist()
+        conf_mat = conf_mat.to_numpy()
 
-    data.loc[:, 'participants'] = data.apply(bins_num, axis=1)
-    data.loc[:, 'LOESS_nmodel'] = data.apply(loess_normative_model,
-                                                axis=1)
-    data.loc[(data.LOESS_nmodel <= -2), 'LOESS_rank'] = -2
-    data.loc[(data.LOESS_nmodel > -2) &
-                (data.LOESS_nmodel <= -1), 'LOESS_rank'] = -1
-    data.loc[(data.LOESS_nmodel > -1) &
-                (data.LOESS_nmodel <= +1), 'LOESS_rank'] = 0
-    data.loc[(data.LOESS_nmodel > +1) &
-                (data.LOESS_nmodel <= +2), 'LOESS_rank'] = 1
-    data.loc[(data.LOESS_nmodel > +2), 'LOESS_rank'] = 2
+        #Define independent and response variables
+        y = self.data[self.score][ctr_mask].to_numpy().reshape(-1,1)
+        X = conf_mat[ctr_mask]
+        
+        #Fit normative model on controls
+        kernel = ConstantKernel() + WhiteKernel(noise_level=1) + Matern(length_scale=length_scale, nu=nu)
+        gp = gaussian_process.GaussianProcessRegressor(kernel=kernel)
+        gp.fit(X, y)
 
-    data.loc[:, 'Centiles_nmodel'] = data.apply(centiles_normative_model,
-                                                axis=1)
-    data.loc[(data.Centiles_nmodel <= 5), 'Centiles_rank'] = -2
-    data.loc[(data.Centiles_nmodel > 5) &
-                (data.Centiles_nmodel <= 25), 'Centiles_rank'] = -1
-    data.loc[(data.Centiles_nmodel > 25) &
-                (data.Centiles_nmodel <= 75), 'Centiles_rank'] = 0
-    data.loc[(data.Centiles_nmodel > 75) &
-                (data.Centiles_nmodel <= 95), 'Centiles_rank'] = 1
-    data.loc[(data.Centiles_nmodel > 95), 'Centiles_rank'] = 2
-
-    return data, x, xcount, z, zm, zstd, zci
+        #Predict normative values
+        y_pred, sigma = gp.predict(conf_mat, return_std=True)
+        y_true = self.data[self.score].to_numpy().reshape(-1,1)
+        
+        self.data['GP_nmodel_pred'] = y_pred
+        self.data['GP_nmodel_sigma'] = sigma
+        self.data['GP_nmodel_residuals'] = y_pred - y_true
+        
+if __name__ == "__main__":
+    parser = ArgumentParser()
+    parser.add_argument("--pheno_p",help="path to phenotype data",dest='pheno_p')
+    parser.add_argument("--out_p",help="path to save restuls",dest='out_p')
+    parser.add_argument("--confounds",help="list of confounds to use in gp model, formatted as a string with commas between confounds (column names from phenotype dataframe) and categorical confounds marked as C(my_confound).",default = 'age',dest='confounds')
+    parser.add_argument("--conf",help="single confound to use in LOESS & centile models",default = 'age',dest='conf')
+    parser.add_argument("--score",help="response variable, column title from phenotype dataframe",default = 'score',dest='score')
+    args = parser.parse_args()
+    
+    
+    confounds = args.confounds.split(',')            
+    data = pd.read_csv(args.pheno_p)
+    
+    pynm = PyNM(data,args.score,args.conf,confounds)
+    
+    #Add a column to data w/ number controls used in this bin
+    pynm.bins_num()
+    
+    #Run models
+    pynm.loess_normative_model()
+    pynm.centiles_normative_model()    
+    pynm.gp_normative_model()
+    
+    pynm.data.to_csv(args.out_p,index=False)
