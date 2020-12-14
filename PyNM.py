@@ -29,16 +29,18 @@ from sklearn.gaussian_process.kernels import Matern, WhiteKernel, ConstantKernel
 def read_confounds(confounds):
     #Find categorical values in confounds and clean format
     categorical = []
+    clean_confounds = []
     for conf in confounds:
         if ((conf[0:2]=='C(') & (conf[-1]==')')):
-            confounds.remove(conf)
             categorical.append(conf[2:-1])
-            confounds.append(conf[2:-1])
-    return confounds,categorical
+            clean_confounds.append(conf[2:-1])
+        else:
+            clean_confounds.append(conf)
+    return clean_confounds,categorical
 
 class PyNM:
-    def __init__(self,data,score,conf,confounds):
-        self.data = data
+    def __init__(self,data,score='score',conf='age',confounds=['age','sex','site']):
+        self.data = data.copy()
         self.score = score
         self.conf = conf
         self.confounds = confounds
@@ -54,13 +56,13 @@ class PyNM:
         #Default values for age in days
     def create_bins(self, min_age=-1, max_age=-1, min_score=-1, max_score=-1, bin_spacing = 365 / 8, bin_width = 365 * 1.5):
         if min_age == -1:
-            min_age = data[self.conf].min()
+            min_age = self.data[self.conf].min()
         if max_age == -1:
-            max_age = data[self.conf].max()
+            max_age = self.data[self.conf].max()
         if min_score == -1:
-            min_score = data[self.score].min()
+            min_score = self.data[self.score].min()
         if max_score == -1:
-            max_score = data[self.score].max()
+            max_score = self.data[self.score].max()
         #if max age less than 300 assume age is in years not days
         if max_age < 300:
             bin_spacing = 1/8
@@ -121,7 +123,7 @@ class PyNM:
         self.error_mea = self.error_mea**0.5
         self.error_med = self.error_med**0.5
         
-        return self.data, self.bins, self.bin_count, self.z, self.zm, self.zstd, self.zci
+        return self.bins, self.bin_count, self.z, self.zm, self.zstd, self.zci
     
     def bins_num(self):
         """Give the number of ctr used for the age bin each participant is in."""
@@ -187,7 +189,7 @@ class PyNM:
 
         #Define confounds as matrix for prediction, dummy encode categorical variables
         confounds,categorical = read_confounds(self.confounds)
-        
+
         conf_mat = self.data[confounds]
         conf_mat = pd.get_dummies(conf_mat,columns=categorical,drop_first=True)
         conf_mat_cols = conf_mat.columns.tolist()
@@ -209,6 +211,7 @@ class PyNM:
         self.data['GP_nmodel_pred'] = y_pred
         self.data['GP_nmodel_sigma'] = sigma
         self.data['GP_nmodel_residuals'] = y_pred - y_true
+        return y_pred - y_true
         
 if __name__ == "__main__":
     parser = ArgumentParser()
