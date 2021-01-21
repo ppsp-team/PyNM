@@ -1,5 +1,5 @@
 # PyNM
-Python implementation of Normative Modelling with LOESS & Centiles approaches.
+Python implementation of Normative Modelling with Gaussian Processes, LOESS & Centiles approaches.
 
 Original papers with Gaussian Processes (GP):
 - [Marquand et al. Biological Psychiatry 2016](https://www.sciencedirect.com/science/article/pii/S0006322316000020)
