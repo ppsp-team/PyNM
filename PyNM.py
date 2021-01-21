@@ -5,10 +5,11 @@
 # description     : Compute a Centiles- & LOESS-based normative models
 # author          : Guillaume Dumas, Institut Pasteur
 # date            : 2019-06-03
-# notes           : the input dataframe must contains a column "group"
-#                   with controls marked as "CTR" and probands as "PROB". The --pheno_p is for the path to the
-#                   input dataframe. The --out_p flag is for the path to save the output dataframe, include filename
-#                   in 'filename.csv' format. The confounds columns for the gaussian process
+# notes           : The input dataframe column passed to --group must either have
+#                   controls marked as "CTR" and probands as "PROB", or controls marked as 0 and probands as 1.
+#                   The --pheno_p is for the path to the input dataframe.
+#                   The --out_p flag is for the path to save the output dataframe, include the filename
+#                   formatted as 'filename.csv'. The confounds columns for the gaussian process
 #                   model must be specified using the --confounds flag. The confound for the LOESS and centiles
 #                   models must be specified using the --conf flag.
 # licence         : BSD 3-Clause License
@@ -39,9 +40,12 @@ def read_confounds(confounds):
     return clean_confounds,categorical
 
 class PyNM:
-    def __init__(self,data,score='score',conf='age',confounds=['age','sex','site']):
+    def __init__(self,data,score='score',group='group',conf='age',confounds=['age','sex','site']):
         self.data = data.copy()
         self.score = score
+        self.group = group
+        self.CTR = None
+        self.PROB = None
         self.conf = conf
         self.confounds = confounds
         self.bins = None
@@ -52,6 +56,18 @@ class PyNM:
         self.z = None
         self.error_mea = None
         self.error_med = None
+        
+        self.set_group_names()
+        
+    def set_group_names(self):
+        """Read whether subjects are labeled CTR/PROB or 0/1 and set accordingly."""
+        labels = set(self.data[self.group].unique())
+        if len({'CTR','PROB'}.difference(labels)) ==0:
+            self.CTR = 'CTR'
+            self.PROB = 'PROB'
+        else:
+            self.CTR = 0
+            self.PROB = 1
     
         #Default values for age in days
     def create_bins(self, min_age=-1, max_age=-1, min_score=-1, max_score=-1, bin_spacing = 365 / 8, bin_width = 365 * 1.5):
@@ -72,7 +88,7 @@ class PyNM:
         self.bins = np.arange(min_age,max_age + bin_width,bin_spacing)
         
         #take the controls
-        ctr = self.data.loc[(self.data.group == 'CTR'), [self.conf, self.score]].to_numpy(dtype=np.float64)
+        ctr = self.data.loc[(self.data[self.group] == self.CTR), [self.conf, self.score]].to_numpy(dtype=np.float64)
         #age of all the controls
         ctr_conf = ctr[:, :1]
 
@@ -182,9 +198,9 @@ class PyNM:
         return result
     
     def gp_normative_model(self,length_scale=1,nu=2.5):
-        ctr = self.data.loc[(self.data.group == 'CTR')]
+        ctr = self.data.loc[(self.data[self.group] == self.CTR)]
         ctr_mask = self.data.index.isin(ctr.index)
-        probands = self.data.loc[(self.data.group == 'PROB')]
+        probands = self.data.loc[(self.data[self.group] == self.PROB)]
         prob_mask = self.data.index.isin(probands.index)
 
         #Define confounds as matrix for prediction, dummy encode categorical variables
@@ -220,13 +236,14 @@ if __name__ == "__main__":
     parser.add_argument("--confounds",help="list of confounds to use in gp model, formatted as a string with commas between confounds (column names from phenotype dataframe) and categorical confounds marked as C(my_confound).",default = 'age',dest='confounds')
     parser.add_argument("--conf",help="single confound to use in LOESS & centile models",default = 'age',dest='conf')
     parser.add_argument("--score",help="response variable, column title from phenotype dataframe",default = 'score',dest='score')
+    parser.add_argument("--group",help="group, column title from phenotype dataframe",default = 'group',dest='group')
     args = parser.parse_args()
     
     
     confounds = args.confounds.split(',')            
     data = pd.read_csv(args.pheno_p)
     
-    pynm = PyNM(data,args.score,args.conf,confounds)
+    pynm = PyNM(data,args.score,args.group,args.conf,confounds)
     
     #Add a column to data w/ number controls used in this bin
     pynm.bins_num()
