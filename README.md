@@ -1,7 +1,9 @@
 # PyNM
 Python implementation of Normative Modelling with LOESS & Centiles approaches.
 
-Original paper with Gaussian Processes (GP): [Marquand et al. Biological Psychiatry 2016](https://www.sciencedirect.com/science/article/pii/S0006322316000020)
+Original papers with Gaussian Processes (GP):
+- [Marquand et al. Biological Psychiatry 2016](https://www.sciencedirect.com/science/article/pii/S0006322316000020)
+- [Marquand et al. Molecular Psychiatry 2019](https://www.nature.com/articles/s41380-019-0441-1)
 
 Example of use of the LOESS approach:
 - [Lefebvre et al. Front. Neurosci. 2018](https://www.frontiersin.org/articles/10.3389/fnins.2018.00662/full)
