@@ -1,4 +1,4 @@
 import pytest
 
-def test_pynm()
+def test_pynm():
     return True
