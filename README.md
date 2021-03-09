@@ -1,4 +1,7 @@
 # PyNM
+
+<a href="https://travis-ci.org/ppsp-team/pynm"><img src="https://travis-ci.org/ppsp-team/pynm.svg?branch=master"></a> [![license](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
+
 Python implementation of Normative Modelling with Gaussian Processes, LOESS & Centiles approaches.
 
 Original papers with Gaussian Processes (GP):
