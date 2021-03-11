@@ -4,3 +4,4 @@ numpy
 statsmodels
 scipy
 sklearn
+git+https://github.com/GPflow/GPflow.git
