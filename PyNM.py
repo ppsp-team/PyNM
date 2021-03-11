@@ -198,6 +198,10 @@ class PyNM:
         return result
     
     def gp_normative_model(self,length_scale=1,nu=2.5):
+        """Compute gaussian process normative model.
+           length_scale: length scale parameter of Matern kernel
+           nu: nu parameter of Matern kernel
+           For Matern kernel parameters see scikit-learn documentation https://scikit-learn.org/stable/modules/generated/sklearn.gaussian_process.kernels.Matern.html."""
         ctr = self.data.loc[(self.data[self.group] == self.CTR)]
         ctr_mask = self.data.index.isin(ctr.index)
         probands = self.data.loc[(self.data[self.group] == self.PROB)]
