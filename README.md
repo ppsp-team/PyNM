@@ -1,8 +1,22 @@
-# PyNM
+![PyNM Logo](pynm_logo.png)
 
 [![PyPI version shields.io](https://img.shields.io/pypi/v/pynm.svg)](https://pypi.org/project/pynm/) <a href="https://travis-ci.org/ppsp-team/pynm"><img src="https://travis-ci.org/ppsp-team/pynm.svg?branch=master"></a> [![license](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 
 Python implementation of Normative Modelling with Gaussian Processes, LOESS & Centiles approaches.
+
+## Roadmap
+
+ [X] Initial development
+ [X] PyPI deployment
+ [X] Design of a logo
+ [ ] Optimize for large input size ([GPflow](https://github.com/GPflow/GPflow) vs [GPyTorch](https://github.com/cornellius-gp/gpytorch/))
+ [ ] Addition of the commande line utility (c.f. [post](https://gehrcke.de/2014/02/distributing-a-python-command-line-application/))
+ [ ] Coding of key unit tests
+ [ ] Creation of a clear tutorial
+ [ ] Documentation of all the functions
+ [ ] Submission to JOSS
+
+## References
 
 Original papers with Gaussian Processes (GP):
 - [Marquand et al. Biological Psychiatry 2016](https://www.sciencedirect.com/science/article/pii/S0006322316000020)
