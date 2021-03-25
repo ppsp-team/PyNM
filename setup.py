@@ -17,4 +17,5 @@ setup(
         "Topic :: Scientific/Engineering :: Bio-Informatics",
         "License :: OSI Approved :: BSD License",
     ],
+    package_dir={"": "pynm"},
 )

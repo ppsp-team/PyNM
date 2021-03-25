@@ -197,11 +197,106 @@ class PyNM:
         self.centiles_rank()
         return result
     
-    def gp_normative_model(self,length_scale=1,nu=2.5):
+    def svgp_normative_model(self,conf_mat,score,ctr_mask,nu=2.5,batch_size=256,n_inducing=500,num_epochs=10):
+        try:
+            import math
+            import torch
+            import gpytorch
+            import statsmodels.api as sm
+            from torch.utils.data import TensorDataset, DataLoader
+            from gpytorch.models import ApproximateGP
+            from gpytorch.variational import CholeskyVariationalDistribution
+            from gpytorch.variational import VariationalStrategy
+        except:
+            'Using the approximate GP model requires PyTorch and GPyTorch.'
+        else:
+            #Get data in torch format
+            X = torch.from_numpy(conf_mat)
+            y = torch.from_numpy(score)
+            train_x = X[ctr_mask].contiguous()
+            train_y = y[ctr_mask].contiguous()
+            test_x = X.double().contiguous()
+            test_y = y.double().contiguous()
+
+            #Create a dataloader
+            train_dataset = TensorDataset(train_x, train_y)
+            train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+
+            test_dataset = TensorDataset(test_x, test_y)
+            test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+            
+            #Create a model
+            class GPModel(ApproximateGP):
+                def __init__(self, inducing_points):
+                    variational_distribution = CholeskyVariationalDistribution(inducing_points.size(0))
+                    variational_strategy = VariationalStrategy(self, inducing_points, variational_distribution, learn_inducing_locations=True)
+                    super(GPModel, self).__init__(variational_strategy)
+                    self.mean_module = gpytorch.means.ConstantMean()
+                    self.covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.MaternKernel(nu=2.5))
+
+                def forward(self, x):
+                    mean_x = self.mean_module(x)
+                    covar_x = self.covar_module(x)
+                    return gpytorch.distributions.MultivariateNormal(mean_x, covar_x)
+    
+            inducing_points = train_x[:n_inducing, :] 
+            model = GPModel(inducing_points=inducing_points)
+            model = model.double()
+            likelihood = gpytorch.likelihoods.GaussianLikelihood()
+
+            if torch.cuda.is_available():
+                model = model.cuda()
+                likelihood = likelihood.cuda()
+                
+            #Train the model
+            model.train()
+            likelihood.train()
+
+            optimizer = torch.optim.Adam([
+                {'params': model.parameters()},
+                {'params': likelihood.parameters()},
+            ], lr=0.01)
+
+            # Our loss object. We're using the VariationalELBO
+            mll = gpytorch.mlls.VariationalELBO(likelihood, model, num_data=train_y.size(0))
+
+            epochs_iter = tqdm(range(num_epochs), desc="Epoch")
+            for i in epochs_iter:
+                # Within each iteration, we will go over each minibatch of data
+                minibatch_iter = tqdm(train_loader, desc="Minibatch", leave=False)
+                for x_batch, y_batch in minibatch_iter:
+                    optimizer.zero_grad()
+                    output = model(x_batch)
+                    loss = -mll(output, y_batch)
+                    minibatch_iter.set_postfix(loss=loss.item())
+                    loss.backward()
+                    optimizer.step()
+                    
+            #Predict from the model
+            model.eval()
+            likelihood.eval()
+            means = torch.tensor([0.])
+            with torch.no_grad():
+                for x_batch, y_batch in test_loader:
+                    preds = model(x_batch)
+                    means = torch.cat([means, preds.mean.cpu()])
+            means = means[1:]
+            
+            y_pred = means.numpy()
+            y_true = test_y.numpy()
+            residuals = (y_pred - y_true).astype(float)
+            
+            self.data['GP_nmodel_pred'] = y_pred
+            #self.data['GP_nmodel_sigma'] = sigma
+            self.data['GP_nmodel_residuals'] = residuals
+            return residuals
+    
+    def gp_normative_model(self,length_scale=1,nu=2.5, approx=False):
         """Compute gaussian process normative model.
            length_scale: length scale parameter of Matern kernel
            nu: nu parameter of Matern kernel
            For Matern kernel parameters see scikit-learn documentation https://scikit-learn.org/stable/modules/generated/sklearn.gaussian_process.kernels.Matern.html."""
+        
         ctr = self.data.loc[(self.data[self.group] == self.CTR)]
         ctr_mask = self.data.index.isin(ctr.index)
         probands = self.data.loc[(self.data[self.group] == self.PROB)]
@@ -214,24 +309,30 @@ class PyNM:
         conf_mat = pd.get_dummies(conf_mat,columns=categorical,drop_first=True)
         conf_mat_cols = conf_mat.columns.tolist()
         conf_mat = conf_mat.to_numpy()
-
-        #Define independent and response variables
-        y = self.data[self.score][ctr_mask].to_numpy().reshape(-1,1)
-        X = conf_mat[ctr_mask]
         
-        #Fit normative model on controls
-        kernel = ConstantKernel() + WhiteKernel(noise_level=1) + Matern(length_scale=length_scale, nu=nu)
-        gp = gaussian_process.GaussianProcessRegressor(kernel=kernel)
-        gp.fit(X, y)
-
-        #Predict normative values
-        y_pred, sigma = gp.predict(conf_mat, return_std=True)
-        y_true = self.data[self.score].to_numpy().reshape(-1,1)
+        score = self.data[self.score].to_numpy()
+            
+        if approx == True:
+            return self.svgp_normative_model(conf_mat,score,ctr_mask,nu=nu)
         
-        self.data['GP_nmodel_pred'] = y_pred
-        self.data['GP_nmodel_sigma'] = sigma
-        self.data['GP_nmodel_residuals'] = y_pred - y_true
-        return y_pred - y_true
+        else:
+            #Define independent and response variables
+            y = score[ctr_mask].reshape(-1,1)
+            X = conf_mat[ctr_mask]
+
+            #Fit normative model on controls
+            kernel = ConstantKernel() + WhiteKernel(noise_level=1) + Matern(length_scale=length_scale, nu=nu)
+            gp = gaussian_process.GaussianProcessRegressor(kernel=kernel)
+            gp.fit(X, y)
+
+            #Predict normative values
+            y_pred, sigma = gp.predict(conf_mat, return_std=True)
+            y_true = self.data[self.score].to_numpy().reshape(-1,1)
+
+            self.data['GP_nmodel_pred'] = y_pred
+            self.data['GP_nmodel_sigma'] = sigma
+            self.data['GP_nmodel_residuals'] = y_pred - y_true
+            return y_pred - y_true
         
 if __name__ == "__main__":
     parser = ArgumentParser()
