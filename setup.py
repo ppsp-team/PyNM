@@ -18,4 +18,9 @@ setup(
         "License :: OSI Approved :: BSD License",
     ],
     package_dir={"": "pynm"},
+    entry_points={
+        'console_scripts': [
+            'pynm=pynm.cli:main'
+            ]
+        }
 )
