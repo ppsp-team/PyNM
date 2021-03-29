@@ -110,7 +110,7 @@ class PyNM:
             
             #if more than 2 non NaN values do the model
             if (~np.isnan(scores)).sum()>2:
-                mod = sm.WLS(scores, sm.tools.add_constant(adj_conf),missing='drop',weight=bin_mask.flatten()[idx],hasconst=True).fit()
+                mod = sm.WLS(scores, sm.tools.add_constant(adj_conf,has_constant='add'),missing='drop',weight=bin_mask.flatten()[idx],hasconst=True).fit()
                 self.zm[i] = mod.params[0] #mean
                 
                 #std and confidence intervals
