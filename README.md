@@ -8,8 +8,12 @@ For a more advanced implementation, see the Python librairie [PCNtoolkit](https:
 
 ## Roadmap
 
-- [ ] Optimize for large input size with [GPflow](https://github.com/GPflow/GPflow) or [GPyTorch](https://github.com/cornellius-gp/gpytorch/)
+- [ ] Optimize for large input size with [GPflow](https://github.com/GPflow/GPflow)
 - [ ] Addition of the commande line utility (c.f. [post](https://gehrcke.de/2014/02/distributing-a-python-command-line-application/))
+- [ ] Coding of key unit tests
+- [ ] Creation of a clear tutorial
+- [ ] Documentation of all the functions
+- [ ] Submission to JO
 
 ## References
 
