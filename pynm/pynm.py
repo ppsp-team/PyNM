@@ -232,29 +232,3 @@ class PyNM:
         self.data['GP_nmodel_sigma'] = sigma
         self.data['GP_nmodel_residuals'] = y_pred - y_true
         return y_pred - y_true
-        
-if __name__ == "__main__":
-    parser = ArgumentParser()
-    parser.add_argument("--pheno_p",help="path to phenotype data",dest='pheno_p')
-    parser.add_argument("--out_p",help="path to save restuls",dest='out_p')
-    parser.add_argument("--confounds",help="list of confounds to use in gp model, formatted as a string with commas between confounds (column names from phenotype dataframe) and categorical confounds marked as C(my_confound).",default = 'age',dest='confounds')
-    parser.add_argument("--conf",help="single confound to use in LOESS & centile models",default = 'age',dest='conf')
-    parser.add_argument("--score",help="response variable, column title from phenotype dataframe",default = 'score',dest='score')
-    parser.add_argument("--group",help="group, column title from phenotype dataframe",default = 'group',dest='group')
-    args = parser.parse_args()
-    
-    
-    confounds = args.confounds.split(',')            
-    data = pd.read_csv(args.pheno_p)
-    
-    pynm = PyNM(data,args.score,args.group,args.conf,confounds)
-    
-    #Add a column to data w/ number controls used in this bin
-    pynm.bins_num()
-    
-    #Run models
-    pynm.loess_normative_model()
-    pynm.centiles_normative_model()    
-    pynm.gp_normative_model()
-    
-    pynm.data.to_csv(args.out_p,index=False)

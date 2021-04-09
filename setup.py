@@ -17,4 +17,9 @@ setup(
         "Topic :: Scientific/Engineering :: Bio-Informatics",
         "License :: OSI Approved :: BSD License",
     ],
+    entry_points={
+        'console_scripts': [
+            'pynm = pynm.cli:main',
+        ],
+    }
 )
