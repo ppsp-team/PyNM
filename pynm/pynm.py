@@ -69,6 +69,13 @@ class PyNM:
             self.CTR = 0
             self.PROB = 1
     
+    def get_masks(self):
+        ctr = self.data.loc[(self.data[self.group] == self.CTR)]
+        ctr_mask = self.data.index.isin(ctr.index)
+        probands = self.data.loc[(self.data[self.group] == self.PROB)]
+        prob_mask = self.data.index.isin(probands.index)
+        return ctr_mask, prob_mask
+    
         #Default values for age in days
     def create_bins(self, min_age=-1, max_age=-1, min_score=-1, max_score=-1, bin_spacing = 365 / 8, bin_width = 365 * 1.5):
         if min_age == -1:
@@ -87,11 +94,12 @@ class PyNM:
         #define the bins (according to width by age)
         self.bins = np.arange(min_age,max_age + bin_width,bin_spacing)
         
+        #format data
+        data = self.data[[self.conf, self.score]].to_numpy(dtype=np.float64)
+        
         #take the controls
-        ctr = self.data.loc[(self.data[self.group] == self.CTR), [self.conf, self.score]].to_numpy(dtype=np.float64)
-        #age of all the controls
-        ctr_conf = ctr[:, :1]
-
+        ctr_mask,_ = self.get_masks()
+        ctr = data[ctr_mask]
         
         self.bin_count = np.zeros(self.bins.shape[0])
         self.zm = np.zeros(self.bins.shape[0]) #mean
@@ -101,7 +109,7 @@ class PyNM:
         
         for i, bin_center in enumerate(self.bins):
             mu = np.array(bin_center) #bin_center value (age or conf)
-            bin_mask = (abs(ctr_conf - mu) < bin_width) * 1. #one hot mask
+            bin_mask = (abs(ctr[:, :1] - mu) < bin_width) * 1. #one hot mask
             idx = [u for (u, v) in np.argwhere(bin_mask)]
             
             scores = ctr[idx,1]
@@ -196,14 +204,7 @@ class PyNM:
         self.data['Centiles_nmodel'] = result
         self.centiles_rank()
         return result
-    
-    def get_masks(self):
-        ctr = self.data.loc[(self.data[self.group] == self.CTR)]
-        ctr_mask = self.data.index.isin(ctr.index)
-        probands = self.data.loc[(self.data[self.group] == self.PROB)]
-        prob_mask = self.data.index.isin(probands.index)
-        return ctr_mask, prob_mask
-    
+        
     def get_conf_mat(self):
         conf_clean,conf_cat = read_confounds(self.confounds)
         conf_mat = pd.get_dummies(self.data[conf_clean],columns=conf_cat,drop_first=True)
