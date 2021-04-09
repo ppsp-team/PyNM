@@ -40,7 +40,7 @@ def read_confounds(confounds):
     return clean_confounds,categorical
 
 class PyNM:
-    def __init__(self,data,score='score',group='group',conf='age',confounds=['age','sex','site']):
+    def __init__(self,data,score='score',group='group',conf='age',confounds=['age','C(sex)','C(site)']):
         self.data = data.copy()
         self.score = score
         self.group = group
@@ -61,13 +61,20 @@ class PyNM:
         
     def set_group_names(self):
         """Read whether subjects are labeled CTR/PROB or 0/1 and set accordingly."""
-        labels = set(self.data[self.group].unique())
-        if len({'CTR','PROB'}.difference(labels)) ==0:
+        labels = list(self.data[self.group].unique())
+        if ('CTR' in labels) or ('PROB' in labels):
             self.CTR = 'CTR'
             self.PROB = 'PROB'
         else:
             self.CTR = 0
             self.PROB = 1
+    
+    def get_masks(self):
+        ctr = self.data.loc[(self.data[self.group] == self.CTR)]
+        ctr_mask = self.data.index.isin(ctr.index)
+        probands = self.data.loc[(self.data[self.group] == self.PROB)]
+        prob_mask = self.data.index.isin(probands.index)
+        return ctr_mask, prob_mask
     
         #Default values for age in days
     def create_bins(self, min_age=-1, max_age=-1, min_score=-1, max_score=-1, bin_spacing = 365 / 8, bin_width = 365 * 1.5):
@@ -87,11 +94,12 @@ class PyNM:
         #define the bins (according to width by age)
         self.bins = np.arange(min_age,max_age + bin_width,bin_spacing)
         
+        #format data
+        data = self.data[[self.conf, self.score]].to_numpy(dtype=np.float64)
+        
         #take the controls
-        ctr = self.data.loc[(self.data[self.group] == self.CTR), [self.conf, self.score]].to_numpy(dtype=np.float64)
-        #age of all the controls
-        ctr_conf = ctr[:, :1]
-
+        ctr_mask,_ = self.get_masks()
+        ctr = data[ctr_mask]
         
         self.bin_count = np.zeros(self.bins.shape[0])
         self.zm = np.zeros(self.bins.shape[0]) #mean
@@ -101,7 +109,7 @@ class PyNM:
         
         for i, bin_center in enumerate(self.bins):
             mu = np.array(bin_center) #bin_center value (age or conf)
-            bin_mask = (abs(ctr_conf - mu) < bin_width) * 1. #one hot mask
+            bin_mask = (abs(ctr[:, :1] - mu) < bin_width) * 1. #one hot mask
             idx = [u for (u, v) in np.argwhere(bin_mask)]
             
             scores = ctr[idx,1]
@@ -196,24 +204,22 @@ class PyNM:
         self.data['Centiles_nmodel'] = result
         self.centiles_rank()
         return result
-    
+        
+    def get_conf_mat(self):
+        conf_clean,conf_cat = read_confounds(self.confounds)
+        conf_mat = pd.get_dummies(self.data[conf_clean],columns=conf_cat,drop_first=True)
+        return conf_mat.to_numpy()
+
     def gp_normative_model(self,length_scale=1,nu=2.5):
         """Compute gaussian process normative model.
            length_scale: length scale parameter of Matern kernel
            nu: nu parameter of Matern kernel
            For Matern kernel parameters see scikit-learn documentation https://scikit-learn.org/stable/modules/generated/sklearn.gaussian_process.kernels.Matern.html."""
-        ctr = self.data.loc[(self.data[self.group] == self.CTR)]
-        ctr_mask = self.data.index.isin(ctr.index)
-        probands = self.data.loc[(self.data[self.group] == self.PROB)]
-        prob_mask = self.data.index.isin(probands.index)
+        #get proband and control masks
+        ctr_mask, prob_mask = self.get_masks()
 
-        #Define confounds as matrix for prediction, dummy encode categorical variables
-        confounds,categorical = read_confounds(self.confounds)
-
-        conf_mat = self.data[confounds]
-        conf_mat = pd.get_dummies(conf_mat,columns=categorical,drop_first=True)
-        conf_mat_cols = conf_mat.columns.tolist()
-        conf_mat = conf_mat.to_numpy()
+        #get matrix of confounds
+        conf_mat = self.get_conf_mat()
 
         #Define independent and response variables
         y = self.data[self.score][ctr_mask].to_numpy().reshape(-1,1)
