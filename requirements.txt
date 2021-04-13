@@ -4,3 +4,6 @@ numpy >= 1.16.5
 statsmodels
 scipy
 sklearn
+pytest
+torch
+gpytorch
