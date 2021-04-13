@@ -39,19 +39,6 @@ def read_confounds(confounds):
             clean_confounds.append(conf)
     return clean_confounds,categorical
 
-class GPModel(ApproximateGP):
-                def __init__(self, inducing_points):
-                    variational_distribution = CholeskyVariationalDistribution(inducing_points.size(0))
-                    variational_strategy = VariationalStrategy(self, inducing_points, variational_distribution, learn_inducing_locations=True)
-                    super(GPModel, self).__init__(variational_strategy)
-                    self.mean_module = gpytorch.means.ConstantMean()
-                    self.covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.MaternKernel(nu=2.5))
-
-                def forward(self, x):
-                    mean_x = self.mean_module(x)
-                    covar_x = self.covar_module(x)
-                    return gpytorch.distributions.MultivariateNormal(mean_x, covar_x)
-
 class PyNM:
     def __init__(self,data,score='score',group='group',conf='age',confounds=['age','C(sex)','C(site)']):
         self.data = data.copy()
@@ -89,7 +76,7 @@ class PyNM:
         prob_mask = self.data.index.isin(probands.index)
         return ctr_mask, prob_mask
     
-        #Default values for age in days
+    #Default values for age in days
     def create_bins(self, min_age=-1, max_age=-1, min_score=-1, max_score=-1, bin_spacing = 365 / 8, bin_width = 365 * 1.5):
         if min_age == -1:
             min_age = self.data[self.conf].min()
@@ -217,102 +204,14 @@ class PyNM:
         self.data['Centiles_nmodel'] = result
         self.centiles_rank()
         return result
-    
-    def get_torch_data(self,conf_mat,score,ctr_mask):
-        # Get data in torch format
-        X = torch.from_numpy(conf_mat)
-        y = torch.from_numpy(score)
-
-        # Split into train/test
-        train_x = X[ctr_mask].contiguous()
-        train_y = y[ctr_mask].contiguous()
-        test_x = X.double().contiguous()
-        test_y = y.double().contiguous()
-
-        # Create datasets
-        train_dataset = TensorDataset(train_x, train_y)
-        test_dataset = TensorDataset(test_x, test_y)
-
-        # Create dataloaders
-        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-        test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
-        return train_loader, test_loader
-
-    def svgp_normative_model(self,conf_mat,score,ctr_mask,nu=2.5,batch_size=256,n_inducing=500,num_epochs=10):
-        try:
-            import math
-            import torch
-            import gpytorch
-            import statsmodels.api as sm
-            from torch.utils.data import TensorDataset, DataLoader
-            from gpytorch.models import ApproximateGP
-            from gpytorch.variational import CholeskyVariationalDistribution
-            from gpytorch.variational import VariationalStrategy
-        except:
-            'Using the approximate GP model requires PyTorch and GPyTorch.'
-        else:
-            train_loader, test_loader = self.get_torch_data(conf_mat,score,ctr_mask)
-
-            #Create a model
-            inducing_points = train_x[:n_inducing, :] 
-            model = GPModel(inducing_points=inducing_points).double()
-            #model = model.double()
-            likelihood = gpytorch.likelihoods.GaussianLikelihood()
-
-            if torch.cuda.is_available():
-                model = model.cuda()
-                likelihood = likelihood.cuda()
-                
-            #Train the model
-            model.train()
-            likelihood.train()
-
-            optimizer = torch.optim.Adam([{'params': model.parameters()},{'params': likelihood.parameters()}], lr=0.01)
-
-            # Our loss object. We're using the VariationalELBO
-            mll = gpytorch.mlls.VariationalELBO(likelihood, model, num_data=train_y.size(0))
-
-            loss_per_epoch = []
-            epochs_iter = tqdm(range(num_epochs), desc="Epoch")
-            for i in epochs_iter:
-                # Within each iteration, we will go over each minibatch of data
-                minibatch_iter = tqdm(train_loader, desc="Minibatch", leave=False)
-                for x_batch, y_batch in minibatch_iter:
-                    optimizer.zero_grad()
-                    output = model(x_batch)
-                    loss = -mll(output, y_batch)
-                    print(loss.item())
-                    loss_per_epoch.append((i,loss.item()))
-                    minibatch_iter.set_postfix(loss=loss.item())
-                    loss.backward()
-                    optimizer.step()
-                    
-            #Predict from the model
-            model.eval()
-            likelihood.eval()
-            means = torch.tensor([0.])
-            sigmas = torch.tensor([0.])
-            with torch.no_grad():
-                for x_batch, y_batch in test_loader:
-                    preds = model(x_batch)
-                    means = torch.cat([means, preds.mean.cpu()])
-                    sigmas = torch.cat([sigmas, preds.std.cpu()])
-            means = means[1:]
-            
-            y_pred = means.numpy()
-            y_true = test_y.numpy()
-            residuals = (y_pred - y_true).astype(float)
-            
-            self.data['GP_nmodel_pred'] = y_pred
-            #self.data['GP_nmodel_sigma'] = sigma
-            self.data['GP_nmodel_residuals'] = residuals
-            return loss_per_epoch
-    
         
     def get_conf_mat(self):
         conf_clean,conf_cat = read_confounds(self.confounds)
         conf_mat = pd.get_dummies(self.data[conf_clean],columns=conf_cat,drop_first=True)
         return conf_mat.to_numpy()
+    
+    def get_score(self):
+        return self.data[self.score].to_numpy()
 
     def gp_normative_model(self,length_scale=1,nu=2.5, approx=False):
         """Compute gaussian process normative model.
@@ -329,10 +228,10 @@ class PyNM:
         y = self.data[self.score][ctr_mask].to_numpy().reshape(-1,1)
         X = conf_mat[ctr_mask]
         
-        score = self.data[self.score].to_numpy()
+        score = self.get_score()
             
         if approx == True:
-            return self.svgp_normative_model(conf_mat,score,ctr_mask,nu=nu)
+            self.svgp_normative_model(conf_mat,score,ctr_mask,nu=nu)
         
         else:
             #Define independent and response variables
@@ -351,4 +250,21 @@ class PyNM:
             self.data['GP_nmodel_pred'] = y_pred
             self.data['GP_nmodel_sigma'] = sigma
             self.data['GP_nmodel_residuals'] = y_pred - y_true
-            return y_pred - y_true
+
+    def svgp_normative_model(self,conf_mat,score,ctr_mask,nu=2.5,batch_size=256,n_inducing=500,num_epochs=10):
+        try:
+            from pynm.approx import SVGP
+        except:
+            print("GPyTorch and it's dependencies must be installed to use the SVGP model.")
+        else:
+            svgp = SVGP(conf_mat,score,ctr_mask,n_inducing=n_inducing,batch_size=batch_size)
+            svgp.train(num_epochs=num_epochs)
+            means, sigmas = svgp.predict()
+
+            y_pred = means.numpy()
+            y_true = score
+            residuals = (y_pred - y_true).astype(float)
+
+            self.data['GP_nmodel_pred'] = y_pred
+            self.data['GP_nmodel_sigma'] = sigmas.numpy()
+            self.data['GP_nmodel_residuals'] = residuals
