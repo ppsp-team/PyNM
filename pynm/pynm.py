@@ -39,8 +39,21 @@ def read_confounds(confounds):
             clean_confounds.append(conf)
     return clean_confounds,categorical
 
+class GPModel(ApproximateGP):
+                def __init__(self, inducing_points):
+                    variational_distribution = CholeskyVariationalDistribution(inducing_points.size(0))
+                    variational_strategy = VariationalStrategy(self, inducing_points, variational_distribution, learn_inducing_locations=True)
+                    super(GPModel, self).__init__(variational_strategy)
+                    self.mean_module = gpytorch.means.ConstantMean()
+                    self.covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.MaternKernel(nu=2.5))
+
+                def forward(self, x):
+                    mean_x = self.mean_module(x)
+                    covar_x = self.covar_module(x)
+                    return gpytorch.distributions.MultivariateNormal(mean_x, covar_x)
+
 class PyNM:
-    def __init__(self,data,score='score',group='group',conf='age',confounds=['age','sex','site']):
+    def __init__(self,data,score='score',group='group',conf='age',confounds=['age','C(sex)','C(site)']):
         self.data = data.copy()
         self.score = score
         self.group = group
@@ -61,13 +74,20 @@ class PyNM:
         
     def set_group_names(self):
         """Read whether subjects are labeled CTR/PROB or 0/1 and set accordingly."""
-        labels = set(self.data[self.group].unique())
-        if len({'CTR','PROB'}.difference(labels)) ==0:
+        labels = list(self.data[self.group].unique())
+        if ('CTR' in labels) or ('PROB' in labels):
             self.CTR = 'CTR'
             self.PROB = 'PROB'
         else:
             self.CTR = 0
             self.PROB = 1
+    
+    def get_masks(self):
+        ctr = self.data.loc[(self.data[self.group] == self.CTR)]
+        ctr_mask = self.data.index.isin(ctr.index)
+        probands = self.data.loc[(self.data[self.group] == self.PROB)]
+        prob_mask = self.data.index.isin(probands.index)
+        return ctr_mask, prob_mask
     
         #Default values for age in days
     def create_bins(self, min_age=-1, max_age=-1, min_score=-1, max_score=-1, bin_spacing = 365 / 8, bin_width = 365 * 1.5):
@@ -87,11 +107,12 @@ class PyNM:
         #define the bins (according to width by age)
         self.bins = np.arange(min_age,max_age + bin_width,bin_spacing)
         
+        #format data
+        data = self.data[[self.conf, self.score]].to_numpy(dtype=np.float64)
+        
         #take the controls
-        ctr = self.data.loc[(self.data[self.group] == self.CTR), [self.conf, self.score]].to_numpy(dtype=np.float64)
-        #age of all the controls
-        ctr_conf = ctr[:, :1]
-
+        ctr_mask,_ = self.get_masks()
+        ctr = data[ctr_mask]
         
         self.bin_count = np.zeros(self.bins.shape[0])
         self.zm = np.zeros(self.bins.shape[0]) #mean
@@ -101,7 +122,7 @@ class PyNM:
         
         for i, bin_center in enumerate(self.bins):
             mu = np.array(bin_center) #bin_center value (age or conf)
-            bin_mask = (abs(ctr_conf - mu) < bin_width) * 1. #one hot mask
+            bin_mask = (abs(ctr[:, :1] - mu) < bin_width) * 1. #one hot mask
             idx = [u for (u, v) in np.argwhere(bin_mask)]
             
             scores = ctr[idx,1]
@@ -110,7 +131,7 @@ class PyNM:
             
             #if more than 2 non NaN values do the model
             if (~np.isnan(scores)).sum()>2:
-                mod = sm.WLS(scores, sm.tools.add_constant(adj_conf),missing='drop',weight=bin_mask.flatten()[idx],hasconst=True).fit()
+                mod = sm.WLS(scores, sm.tools.add_constant(adj_conf,has_constant='add'),missing='drop',weight=bin_mask.flatten()[idx],hasconst=True).fit()
                 self.zm[i] = mod.params[0] #mean
                 
                 #std and confidence intervals
@@ -197,6 +218,26 @@ class PyNM:
         self.centiles_rank()
         return result
     
+    def get_torch_data(self,conf_mat,score,ctr_mask):
+        # Get data in torch format
+        X = torch.from_numpy(conf_mat)
+        y = torch.from_numpy(score)
+
+        # Split into train/test
+        train_x = X[ctr_mask].contiguous()
+        train_y = y[ctr_mask].contiguous()
+        test_x = X.double().contiguous()
+        test_y = y.double().contiguous()
+
+        # Create datasets
+        train_dataset = TensorDataset(train_x, train_y)
+        test_dataset = TensorDataset(test_x, test_y)
+
+        # Create dataloaders
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+        test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+        return train_loader, test_loader
+
     def svgp_normative_model(self,conf_mat,score,ctr_mask,nu=2.5,batch_size=256,n_inducing=500,num_epochs=10):
         try:
             import math
@@ -210,38 +251,12 @@ class PyNM:
         except:
             'Using the approximate GP model requires PyTorch and GPyTorch.'
         else:
-            #Get data in torch format
-            X = torch.from_numpy(conf_mat)
-            y = torch.from_numpy(score)
-            train_x = X[ctr_mask].contiguous()
-            train_y = y[ctr_mask].contiguous()
-            test_x = X.double().contiguous()
-            test_y = y.double().contiguous()
+            train_loader, test_loader = self.get_torch_data(conf_mat,score,ctr_mask)
 
-            #Create a dataloader
-            train_dataset = TensorDataset(train_x, train_y)
-            train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-
-            test_dataset = TensorDataset(test_x, test_y)
-            test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
-            
             #Create a model
-            class GPModel(ApproximateGP):
-                def __init__(self, inducing_points):
-                    variational_distribution = CholeskyVariationalDistribution(inducing_points.size(0))
-                    variational_strategy = VariationalStrategy(self, inducing_points, variational_distribution, learn_inducing_locations=True)
-                    super(GPModel, self).__init__(variational_strategy)
-                    self.mean_module = gpytorch.means.ConstantMean()
-                    self.covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.MaternKernel(nu=2.5))
-
-                def forward(self, x):
-                    mean_x = self.mean_module(x)
-                    covar_x = self.covar_module(x)
-                    return gpytorch.distributions.MultivariateNormal(mean_x, covar_x)
-    
             inducing_points = train_x[:n_inducing, :] 
-            model = GPModel(inducing_points=inducing_points)
-            model = model.double()
+            model = GPModel(inducing_points=inducing_points).double()
+            #model = model.double()
             likelihood = gpytorch.likelihoods.GaussianLikelihood()
 
             if torch.cuda.is_available():
@@ -252,14 +267,12 @@ class PyNM:
             model.train()
             likelihood.train()
 
-            optimizer = torch.optim.Adam([
-                {'params': model.parameters()},
-                {'params': likelihood.parameters()},
-            ], lr=0.01)
+            optimizer = torch.optim.Adam([{'params': model.parameters()},{'params': likelihood.parameters()}], lr=0.01)
 
             # Our loss object. We're using the VariationalELBO
             mll = gpytorch.mlls.VariationalELBO(likelihood, model, num_data=train_y.size(0))
 
+            loss_per_epoch = []
             epochs_iter = tqdm(range(num_epochs), desc="Epoch")
             for i in epochs_iter:
                 # Within each iteration, we will go over each minibatch of data
@@ -268,6 +281,8 @@ class PyNM:
                     optimizer.zero_grad()
                     output = model(x_batch)
                     loss = -mll(output, y_batch)
+                    print(loss.item())
+                    loss_per_epoch.append((i,loss.item()))
                     minibatch_iter.set_postfix(loss=loss.item())
                     loss.backward()
                     optimizer.step()
@@ -276,10 +291,12 @@ class PyNM:
             model.eval()
             likelihood.eval()
             means = torch.tensor([0.])
+            sigmas = torch.tensor([0.])
             with torch.no_grad():
                 for x_batch, y_batch in test_loader:
                     preds = model(x_batch)
                     means = torch.cat([means, preds.mean.cpu()])
+                    sigmas = torch.cat([sigmas, preds.std.cpu()])
             means = means[1:]
             
             y_pred = means.numpy()
@@ -289,26 +306,28 @@ class PyNM:
             self.data['GP_nmodel_pred'] = y_pred
             #self.data['GP_nmodel_sigma'] = sigma
             self.data['GP_nmodel_residuals'] = residuals
-            return residuals
+            return loss_per_epoch
     
+        
+    def get_conf_mat(self):
+        conf_clean,conf_cat = read_confounds(self.confounds)
+        conf_mat = pd.get_dummies(self.data[conf_clean],columns=conf_cat,drop_first=True)
+        return conf_mat.to_numpy()
+
     def gp_normative_model(self,length_scale=1,nu=2.5, approx=False):
         """Compute gaussian process normative model.
            length_scale: length scale parameter of Matern kernel
            nu: nu parameter of Matern kernel
            For Matern kernel parameters see scikit-learn documentation https://scikit-learn.org/stable/modules/generated/sklearn.gaussian_process.kernels.Matern.html."""
-        
-        ctr = self.data.loc[(self.data[self.group] == self.CTR)]
-        ctr_mask = self.data.index.isin(ctr.index)
-        probands = self.data.loc[(self.data[self.group] == self.PROB)]
-        prob_mask = self.data.index.isin(probands.index)
+        #get proband and control masks
+        ctr_mask, prob_mask = self.get_masks()
 
-        #Define confounds as matrix for prediction, dummy encode categorical variables
-        confounds,categorical = read_confounds(self.confounds)
+        #get matrix of confounds
+        conf_mat = self.get_conf_mat()
 
-        conf_mat = self.data[confounds]
-        conf_mat = pd.get_dummies(conf_mat,columns=categorical,drop_first=True)
-        conf_mat_cols = conf_mat.columns.tolist()
-        conf_mat = conf_mat.to_numpy()
+        #Define independent and response variables
+        y = self.data[self.score][ctr_mask].to_numpy().reshape(-1,1)
+        X = conf_mat[ctr_mask]
         
         score = self.data[self.score].to_numpy()
             
@@ -333,29 +352,3 @@ class PyNM:
             self.data['GP_nmodel_sigma'] = sigma
             self.data['GP_nmodel_residuals'] = y_pred - y_true
             return y_pred - y_true
-        
-if __name__ == "__main__":
-    parser = ArgumentParser()
-    parser.add_argument("--pheno_p",help="path to phenotype data",dest='pheno_p')
-    parser.add_argument("--out_p",help="path to save restuls",dest='out_p')
-    parser.add_argument("--confounds",help="list of confounds to use in gp model, formatted as a string with commas between confounds (column names from phenotype dataframe) and categorical confounds marked as C(my_confound).",default = 'age',dest='confounds')
-    parser.add_argument("--conf",help="single confound to use in LOESS & centile models",default = 'age',dest='conf')
-    parser.add_argument("--score",help="response variable, column title from phenotype dataframe",default = 'score',dest='score')
-    parser.add_argument("--group",help="group, column title from phenotype dataframe",default = 'group',dest='group')
-    args = parser.parse_args()
-    
-    
-    confounds = args.confounds.split(',')            
-    data = pd.read_csv(args.pheno_p)
-    
-    pynm = PyNM(data,args.score,args.group,args.conf,confounds)
-    
-    #Add a column to data w/ number controls used in this bin
-    pynm.bins_num()
-    
-    #Run models
-    pynm.loess_normative_model()
-    pynm.centiles_normative_model()    
-    pynm.gp_normative_model()
-    
-    pynm.data.to_csv(args.out_p,index=False)
