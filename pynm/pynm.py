@@ -213,7 +213,7 @@ class PyNM:
     def get_score(self):
         return self.data[self.score].to_numpy()
 
-    def gp_normative_model(self,length_scale=1,nu=2.5, method='auto',batch_size=256,n_inducing=500,num_epochs=10):
+    def gp_normative_model(self,length_scale=1,nu=2.5, method='auto',batch_size=256,n_inducing=500,num_epochs=20):
         """Compute gaussian process normative model.
            length_scale: length scale parameter of Matern kernel
            nu: nu parameter of Matern kernel
@@ -265,7 +265,7 @@ class PyNM:
             self.data['GP_nmodel_sigma'] = sigma
             self.data['GP_nmodel_residuals'] = y_pred - y_true
 
-    def svgp_normative_model(self,conf_mat,score,ctr_mask,nu=2.5,batch_size=256,n_inducing=500,num_epochs=10):
+    def svgp_normative_model(self,conf_mat,score,ctr_mask,nu=2.5,batch_size=256,n_inducing=500,num_epochs=20):
         try:
             from pynm.approx import SVGP
         except:

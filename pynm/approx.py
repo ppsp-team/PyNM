@@ -46,14 +46,13 @@ class SVGP:
         self.n_test = test_y.size(0)
 
         self.model = GPModel(inducing_points=self.inducing_points).double()
-        #model = model.double()
         self.likelihood = gpytorch.likelihoods.GaussianLikelihood()
 
         if torch.cuda.is_available():
             self.model = self.model.cuda()
             self.likelihood = self.likelihood.cuda()
     
-    def train(self,num_epochs=10):
+    def train(self,num_epochs=20):
         self.model.train()
         self.likelihood.train()
 
