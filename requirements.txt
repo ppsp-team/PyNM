@@ -5,3 +5,4 @@ statsmodels
 scipy
 sklearn
 matplotlib
+seaborn
