@@ -19,6 +19,7 @@
 from tqdm import tqdm
 import pandas as pd
 import numpy as np
+import warnings
 import statsmodels.api as sm
 from argparse import ArgumentParser
 from statsmodels.sandbox.regression.predstd import wls_prediction_std
@@ -212,6 +213,22 @@ class PyNM:
     
     def get_score(self):
         return self.data[self.score].to_numpy()
+    
+    def use_approx(self,method='auto'):
+        if method == 'auto':
+            if self.data.shape[0] > 1000:
+                return True
+            else:
+                return False
+        elif method == 'approx':
+            return True
+        elif method == 'exact':
+            if self.data.shape[0] > 1000:
+                warnings.warn("Exact GP model with over 1000 data points requires "
+                                "large amounts of time and memory, continuing with exact model.",Warning)
+            return False
+        else:
+            raise ValueError('Method must be one of "auto","approx", or "exact".')
 
     def gp_normative_model(self,length_scale=1,nu=2.5, method='auto',batch_size=256,n_inducing=500,num_epochs=20):
         """Compute gaussian process normative model.
@@ -230,21 +247,7 @@ class PyNM:
         
         score = self.get_score()
         
-        if method == 'auto':
-            if self.data.shape[0] > 1000:
-                approx = False
-            else:
-                approx = True
-        elif method == 'approx':
-            approx = True
-        elif method == 'exact':
-            approx = False
-            if self.data.shape[0] > 1000:
-                raise Warning("Exact GP model with over 1000 data points requires large amounts of time and memory, continuing with exact model.")
-        else:
-            raise ValueError('Method must be one of "auto","approx", or "exact".')
-        
-        if approx == True:
+        if self.use_approx(method=method):
             self.loss = self.svgp_normative_model(conf_mat,score,ctr_mask,nu=nu,batch_size=batch_size,n_inducing=n_inducing,num_epochs=num_epochs)
         
         else:

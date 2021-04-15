@@ -3,6 +3,7 @@ import pynm.pynm as pynm
 import numpy as np
 import pandas as pd
 import math
+import pytest
 
 def model(age,sex,offset):
     noise = np.random.normal(0,0.1)
@@ -125,6 +126,30 @@ class TestBasic:
         assert conf_mat.shape[1] == 3
         for i in range(3):
             assert not isinstance(conf_mat[0,i],str)
+
+    def test_use_approx_auto_small(self):
+        data = generate_data(randseed=3)
+        m = pynm.PyNM(data)
+        assert m.use_approx(method='auto') == False
+
+    def test_use_approx_auto_big(self):
+        data = generate_data(randseed=3,sample_size=1000)
+        m = pynm.PyNM(data)
+        assert m.use_approx(method='auto') == True
+
+    def test_use_approx_approx(self):
+        data = generate_data(randseed=3,sample_size=1000)
+        m = pynm.PyNM(data)
+        assert m.use_approx(method='approx') == True
+    
+    def test_use_approx_exact(self):
+        data = generate_data(randseed=3,sample_size=1000)
+        m = pynm.PyNM(data)
+        with pytest.warns(Warning) as record:
+            use_approx = m.use_approx(method='exact')
+        assert len(record) == 1
+        assert record[0].message.args[0] == "Exact GP model with over 1000 data points requires large amounts of time and memory, continuing with exact model."
+        assert use_approx == False
 
     def test_gp_normative_model(self):
         data = generate_data(randseed=3)
