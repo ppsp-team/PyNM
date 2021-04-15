@@ -213,7 +213,7 @@ class PyNM:
     def get_score(self):
         return self.data[self.score].to_numpy()
 
-    def gp_normative_model(self,length_scale=1,nu=2.5, approx=False):
+    def gp_normative_model(self,length_scale=1,nu=2.5, method='auto',batch_size=256,n_inducing=500,num_epochs=10):
         """Compute gaussian process normative model.
            length_scale: length scale parameter of Matern kernel
            nu: nu parameter of Matern kernel
@@ -229,9 +229,21 @@ class PyNM:
         X = conf_mat[ctr_mask]
         
         score = self.get_score()
-            
+        
+        if method == 'auto':
+            if self.data.shape[0] > 1000:
+                approx = False
+            else:
+                approx = True
+        elif method == 'approx':
+            approx = True
+        elif method == 'exact':
+            approx = False
+        else:
+            raise ValueError('Method must be one of "auto","approx", or "exact".)
+        
         if approx == True:
-            self.svgp_normative_model(conf_mat,score,ctr_mask,nu=nu)
+            self.loss = self.svgp_normative_model(conf_mat,score,ctr_mask,nu=nu,batch_size=batch_size,n_inducing=n_inducing,num_epochs=num_epochs)
         
         else:
             #Define independent and response variables
@@ -268,3 +280,4 @@ class PyNM:
             self.data['GP_nmodel_pred'] = y_pred
             self.data['GP_nmodel_sigma'] = sigmas.numpy()
             self.data['GP_nmodel_residuals'] = residuals
+            return svgp.loss

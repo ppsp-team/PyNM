@@ -33,7 +33,6 @@ class SVGP:
         train_y = y[ctr_mask].contiguous()
         test_x = X.double().contiguous()
         test_y = y.double().contiguous()
-        self.test_y = test_y
 
         # Create datasets
         train_dataset = TensorDataset(train_x, train_y)
@@ -63,7 +62,7 @@ class SVGP:
         # Loss object. We're using the VariationalELBO
         mll = gpytorch.mlls.VariationalELBO(self.likelihood, self.model, num_data=self.n_train)
 
-        self.loss_per_epoch = []
+        self.loss = []
         epochs_iter = tqdm(range(num_epochs), desc="Epoch")
         for i in epochs_iter:
         # Within each iteration, we will go over each minibatch of data
@@ -72,10 +71,10 @@ class SVGP:
                 optimizer.zero_grad()
                 output = self.model(x_batch)
                 loss = -mll(output, y_batch)
-                self.loss_per_epoch.append((i,loss.item()))
                 minibatch_iter.set_postfix(loss=loss.item())
                 loss.backward()
                 optimizer.step()
+            self.loss.append(loss.item())
     
     def predict(self):
         self.model.eval()

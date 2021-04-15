@@ -158,7 +158,7 @@ class TestApprox:
         svgp = SVGP(conf_mat,score,ctr)
         svgp.train(num_epochs = 2)
 
-        assert len(svgp.loss_per_epoch) == 2
+        assert len(svgp.loss) == 2
     
     def test_svgp_predict(self):
         from pynm.approx import SVGP
