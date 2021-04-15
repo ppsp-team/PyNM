@@ -239,6 +239,8 @@ class PyNM:
             approx = True
         elif method == 'exact':
             approx = False
+            if self.data.shape[0] > 1000:
+                raise Warning("Exact GP model with over 1000 data points requires large amounts of time and memory, continuing with exact model.")
         else:
             raise ValueError('Method must be one of "auto","approx", or "exact".)
         
