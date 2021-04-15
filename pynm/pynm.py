@@ -94,62 +94,10 @@ class PyNM:
             bin_width *= 365
 
         # define the bins (according to width by age)
+        self.bin_width = bin_width
         self.bins = np.arange(min_age, max_age + bin_width, bin_spacing)
 
-        # format data
-        data = self.data[[self.conf, self.score]].to_numpy(dtype=np.float64)
-
-        # take the controls
-        ctr_mask, _ = self.get_masks()
-        ctr = data[ctr_mask]
-
-        self.bin_count = np.zeros(self.bins.shape[0])
-        self.zm = np.zeros(self.bins.shape[0])  # mean
-        self.zstd = np.zeros(self.bins.shape[0])  # standard deviation
-        self.zci = np.zeros([self.bins.shape[0], 2])  # confidence interval
-        self.z = np.zeros([self.bins.shape[0], 101])  # centiles
-
-        for i, bin_center in enumerate(self.bins):
-            mu = np.array(bin_center)  # bin_center value (age or conf)
-            bin_mask = (abs(ctr[:, :1] - mu) < bin_width) * 1.  # one hot mask
-            idx = [u for (u, v) in np.argwhere(bin_mask)]
-
-            scores = ctr[idx, 1]
-            adj_conf = ctr[idx, 0] - mu  # confound relative to bin center
-            self.bin_count[i] = len(idx)
-
-            # if more than 2 non NaN values do the model
-            if (~np.isnan(scores)).sum() > 2:
-                mod = sm.WLS(scores, sm.tools.add_constant(adj_conf, has_constant='add'), missing='drop', weight=bin_mask.flatten()[idx], hasconst=True).fit()
-                self.zm[i] = mod.params[0]  # mean
-
-                # std and confidence intervals
-                prstd, iv_l, iv_u = wls_prediction_std(mod, [0, 0])
-                self.zstd[i] = prstd
-                self.zci[i, :] = mod.conf_int()[0, :]  # [iv_l, iv_u]
-
-                # centiles
-                self.z[i, :] = mquantiles(scores, prob=np.linspace(0, 1, 101), alphap=0.4, betap=0.4)
-            else:
-                self.zm[i] = np.nan
-                self.zci[i] = np.nan
-                self.zstd[i] = np.nan
-                self.z[i] = np.nan
-
-        # mean squared error
-        self.error_mea, self.error_med = 0, 0
-
-        # for age and score (cols of sel)
-        for i in range(ctr.shape[1]):
-            idage = np.argmin(np.abs(ctr[i, 1] - self.bins))
-            self.error_mea += (ctr[i, 0] - self.zm[idage])**2
-            self.error_med += (ctr[i, 0] - self.z[idage, 50])**2
-        self.error_mea /= ctr.shape[1]
-        self.error_med /= ctr.shape[1]
-        self.error_mea = self.error_mea**0.5
-        self.error_med = self.error_med**0.5
-
-        return self.bins, self.bin_count, self.z, self.zm, self.zstd, self.zci
+        return self.bins
 
     def bins_num(self):
         """Give the number of ctr used for the age bin each participant is in."""
@@ -172,6 +120,51 @@ class PyNM:
         """Compute classical normative model."""
         if self.error_mea is None:
             self.create_bins()
+        # format data
+        data = self.data[[self.conf, self.score]].to_numpy(dtype=np.float64)
+
+        # take the controls
+        ctr_mask, _ = self.get_masks()
+        ctr = data[ctr_mask]
+
+        self.zm = np.zeros(self.bins.shape[0])  # mean
+        self.zstd = np.zeros(self.bins.shape[0])  # standard deviation
+        self.zci = np.zeros([self.bins.shape[0], 2])  # confidence interval
+
+        for i, bin_center in enumerate(self.bins):
+            mu = np.array(bin_center)  # bin_center value (age or conf)
+            bin_mask = (abs(ctr[:, :1] - mu) < self.bin_width) * 1.  # one hot mask
+            idx = [u for (u, v) in np.argwhere(bin_mask)]
+
+            scores = ctr[idx, 1]
+            adj_conf = ctr[idx, 0] - mu  # confound relative to bin center
+
+            # if more than 2 non NaN values do the model
+            if (~np.isnan(scores)).sum() > 2:
+                mod = sm.WLS(scores, sm.tools.add_constant(adj_conf, has_constant='add'),
+                             missing='drop', weight=bin_mask.flatten()[idx], hasconst=True).fit()
+                self.zm[i] = mod.params[0]  # mean
+
+                # std and confidence intervals
+                prstd, iv_l, iv_u = wls_prediction_std(mod, [0, 0])
+                self.zstd[i] = prstd
+                self.zci[i, :] = mod.conf_int()[0, :]  # [iv_l, iv_u]
+
+            else:
+                self.zm[i] = np.nan
+                self.zci[i] = np.nan
+                self.zstd[i] = np.nan
+
+        # mean squared error
+        self.error_mea = 0
+
+        # for age and score (cols of sel)
+        for i in range(ctr.shape[1]):
+            idage = np.argmin(np.abs(ctr[i, 1] - self.bins))
+            self.error_mea += (ctr[i, 0] - self.zm[idage])**2
+        self.error_mea /= ctr.shape[1]
+        self.error_mea = self.error_mea**0.5
+
         dists = [np.abs(conf - self.bins) for conf in self.data[self.conf]]
         idx = [np.argmin(d) for d in dists]
         m = np.array([self.zm[i] for i in idx])
@@ -192,6 +185,42 @@ class PyNM:
         """Compute centiles normative model."""
         if self.error_mea is None:
             self.create_bins()
+
+        # format data
+        data = self.data[[self.conf, self.score]].to_numpy(dtype=np.float64)
+
+        # take the controls
+        ctr_mask, _ = self.get_masks()
+        ctr = data[ctr_mask]
+
+        self.z = np.zeros([self.bins.shape[0], 101])  # centiles
+
+        for i, bin_center in enumerate(self.bins):
+            mu = np.array(bin_center)  # bin_center value (age or conf)
+            bin_mask = (abs(ctr[:, :1] - mu) <
+                        self.bin_width) * 1.  # one hot mask
+            idx = [u for (u, v) in np.argwhere(bin_mask)]
+
+            scores = ctr[idx, 1]
+            adj_conf = ctr[idx, 0] - mu  # confound relative to bin center
+
+            # if more than 2 non NaN values do the model
+            if (~np.isnan(scores)).sum() > 2:
+                # centiles
+                self.z[i, :] = mquantiles(scores, prob=np.linspace(
+                    0, 1, 101), alphap=0.4, betap=0.4)
+            else:
+                self.z[i] = np.nan
+
+        # mean squared error
+        self.error_med = 0
+        # for age and score (cols of sel)
+        for i in range(ctr.shape[1]):
+            idage = np.argmin(np.abs(ctr[i, 1] - self.bins))
+            self.error_med += (ctr[i, 0] - self.z[idage, 50])**2
+        self.error_med /= ctr.shape[1]
+        self.error_med = self.error_med**0.5
+
         dists = [np.abs(conf - self.bins) for conf in self.data[self.conf]]
         idx = [np.argmin(d) for d in dists]
         centiles = np.array([self.z[i] for i in idx])
