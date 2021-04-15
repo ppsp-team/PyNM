@@ -2,9 +2,10 @@
 # coding=utf-8
 # ==============================================================================
 # title           : PyNM.py
-# description     : Compute a Centiles- & LOESS-based normative models
-# author          : Guillaume Dumas, Institut Pasteur
-# date            : 2019-06-03
+# description     : Gaussian Processes, Centiles & LOESS-based normative models
+# author          : Guillaume Dumas (Institut Pasteur/Université de Montréal)
+#                   Annabelle Harvey (Université de Montréal)
+# date            : 2021-04-15
 # notes           : The input dataframe column passed to --group must either have
 #                   controls marked as "CTR" and probands as "PROB", or controls marked as 0 and probands as 1.
 #                   The --pheno_p is for the path to the input dataframe.
@@ -13,11 +14,14 @@
 #                   model must be specified using the --confounds flag. The confound for the LOESS and centiles
 #                   models must be specified using the --conf flag.
 # licence         : BSD 3-Clause License
-# python_version  : 3.6
+# python_version  : 3.7
 # ==============================================================================
 
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
 import statsmodels.api as sm
 from statsmodels.sandbox.regression.predstd import wls_prediction_std
 from scipy.stats.mstats import mquantiles
@@ -101,7 +105,7 @@ class PyNM:
 
     def bins_num(self):
         """Give the number of ctr used for the age bin each participant is in."""
-        if self.error_mea is None:
+        if self.bins is None:
             self.create_bins()
         dists = [np.abs(conf - self.bins) for conf in self.data[self.conf]]
         idx = [np.argmin(d) for d in dists]
@@ -118,7 +122,7 @@ class PyNM:
 
     def loess_normative_model(self):
         """Compute classical normative model."""
-        if self.error_mea is None:
+        if self.bins is None:
             self.create_bins()
         # format data
         data = self.data[[self.conf, self.score]].to_numpy(dtype=np.float64)
@@ -183,7 +187,7 @@ class PyNM:
 
     def centiles_normative_model(self):
         """Compute centiles normative model."""
-        if self.error_mea is None:
+        if self.bins is None:
             self.create_bins()
 
         # format data
@@ -200,9 +204,7 @@ class PyNM:
             bin_mask = (abs(ctr[:, :1] - mu) <
                         self.bin_width) * 1.  # one hot mask
             idx = [u for (u, v) in np.argwhere(bin_mask)]
-
             scores = ctr[idx, 1]
-            adj_conf = ctr[idx, 0] - mu  # confound relative to bin center
 
             # if more than 2 non NaN values do the model
             if (~np.isnan(scores)).sum() > 2:
@@ -269,3 +271,26 @@ class PyNM:
         self.data['GP_nmodel_sigma'] = sigma
         self.data['GP_nmodel_residuals'] = y_pred - y_true
         return y_pred - y_true
+
+    def _plot(self, plot_type=None):
+        """
+        Plot the data with the normative model overlaid.
+        """
+        ax = sns.scatterplot(data=self.data, x='age', y='score',
+                             hue='group', style='group')
+        if plot_type == 'LOESS':
+            ax.plot(self.bins, self.zm, '-k')
+        if plot_type == 'Centiles':
+            ax.plot(self.bins, self.z[:, 50], '-k')
+        if plot_type == 'GP':
+            tmp = self.data.sort_values('age')
+            ax.plot(tmp['age'], tmp['GP_nmodel_pred'], '-k')
+        return ax
+
+    def plot(self, plot_type=None):
+        """
+        Plot the data with the normative model overlaid.
+        """
+        plt.figure()
+        self._plot(plot_type)
+        plt.show()

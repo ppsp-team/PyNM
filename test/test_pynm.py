@@ -2,6 +2,7 @@ import pynm.pynm as pynm
 import numpy as np
 import pandas as pd
 import math
+import pytest
 
 
 def model(age, sex, offset):
@@ -153,3 +154,10 @@ class TestBasic:
         m.gp_normative_model()
         assert 'GP_nmodel_pred' in m.data.columns
         assert math.isclose(0, m.data['GP_nmodel_residuals'].mean(), abs_tol=0.5)
+
+    @pytest.fixture(scope='function')
+    def test_plot(self):
+        data = generate_data(randseed=3)
+        m = pynm.PyNM(data)
+        m.gp_normative_model()
+        assert m.plot() is None
