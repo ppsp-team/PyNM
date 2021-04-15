@@ -177,7 +177,7 @@ class TestApprox:
     def test_svgp_model(self):
         data = generate_data(randseed=3)
         m = pynm.PyNM(data)
-        m.gp_normative_model(approx=True)
+        m.gp_normative_model(method='approx')
 
         assert 'GP_nmodel_pred' in m.data.columns
     

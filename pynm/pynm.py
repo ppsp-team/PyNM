@@ -242,7 +242,7 @@ class PyNM:
             if self.data.shape[0] > 1000:
                 raise Warning("Exact GP model with over 1000 data points requires large amounts of time and memory, continuing with exact model.")
         else:
-            raise ValueError('Method must be one of "auto","approx", or "exact".)
+            raise ValueError('Method must be one of "auto","approx", or "exact".')
         
         if approx == True:
             self.loss = self.svgp_normative_model(conf_mat,score,ctr_mask,nu=nu,batch_size=batch_size,n_inducing=n_inducing,num_epochs=num_epochs)
