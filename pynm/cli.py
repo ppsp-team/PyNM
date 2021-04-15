@@ -6,11 +6,11 @@ def _cli_parser():
     """Reads command line arguments and returns input specifications"""
     parser = ArgumentParser()
     parser.add_argument("--pheno_p",help="path to phenotype data",dest='pheno_p',required=True)
-    parser.add_argument("--out_p",help="path to save restuls",dest='out_p',required=True)
-    parser.add_argument("--confounds",help="list of confounds to use in gp model, formatted as a string with commas between confounds (column names from phenotype dataframe) and categorical confounds marked as C(my_confound).",default = 'age',dest='confounds')
+    parser.add_argument("--out_p",help="path to output dir",dest='out_p',required=True)
+    parser.add_argument("--confounds",help="list of confounds to use in GP model, formatted as a string with commas between confounds (column names from phenotype dataframe) and categorical confounds marked as C(my_confound).",default = 'age',dest='confounds')
     parser.add_argument("--conf",help="single confound to use in LOESS & centile models",default = 'age',dest='conf')
-    parser.add_argument("--score",help="response variable, column title from phenotype dataframe",default = 'score',dest='score')
-    parser.add_argument("--group",help="group, column title from phenotype dataframe",default = 'group',dest='group')
+    parser.add_argument("--score",help="response variable, must be column title from phenotype dataframe",default = 'score',dest='score')
+    parser.add_argument("--group",help="group, must be column title from phenotype dataframe that indicates probands and controls as 'PROB' and 'CTR' or 0 and 1",default = 'group',dest='group')
     return parser.parse_args()
 
 def main():
