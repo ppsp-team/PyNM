@@ -26,3 +26,25 @@ Example of use of the LOESS approach:
 - [Maruani et al. Front. Psychiatry 2019](https://www.frontiersin.org/articles/10.3389/fpsyt.2019.00011/full)
 
 See also [Bethlehem et al. Communications Biology 2020](https://www.nature.com/articles/s42003-020-01212-9) with R implementation [here](https://github.com/rb643/Normative_modeling).
+
+## Usage
+```
+usage: pynm [-h] --pheno_p PHENO_P --out_p OUT_P [--confounds CONFOUNDS]
+            [--conf CONF] [--score SCORE] [--group GROUP]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --pheno_p PHENO_P     path to phenotype data
+  --out_p OUT_P         path to output dir
+  --confounds CONFOUNDS
+                        list of confounds to use in GP model, formatted as a
+                        string with commas between confounds (column names
+                        from phenotype dataframe) and categorical confounds
+                        marked as C(my_confound).
+  --conf CONF           single confound to use in LOESS & centile models
+  --score SCORE         response variable, must be column title from phenotype
+                        dataframe
+  --group GROUP         group, must be column title from phenotype dataframe
+                        that indicates probands and controls as 'PROB' and
+                        'CTR' or 0 and 1
+```
