@@ -269,8 +269,8 @@ class PyNM:
 
         self.data['GP_nmodel_pred'] = y_pred
         self.data['GP_nmodel_sigma'] = sigma
-        self.data['GP_nmodel_residuals'] = y_pred - y_true
-        return y_pred - y_true
+        self.data['GP_nmodel_residuals'] = y_true - y_pred
+        return y_true - y_pred
 
     def _plot(self, plot_type=None):
         """
