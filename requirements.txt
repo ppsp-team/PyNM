@@ -7,3 +7,5 @@ sklearn
 pytest
 torch
 gpytorch
+matplotlib
+seaborn
