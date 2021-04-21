@@ -85,7 +85,7 @@ class SVGP:
             for x_batch, y_batch in self.test_loader:
                 preds = self.model(x_batch)
                 means = torch.cat([means, preds.mean.cpu()])
-                sigmas = torch.cat([sigmas, preds.variance.cpu()])
+                sigmas = torch.cat([sigmas, torch.sqrt(preds.variance.cpu())])
         means = means[1:]
         sigmas = sigmas[1:]
         return means, sigmas

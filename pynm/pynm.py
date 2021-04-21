@@ -19,13 +19,10 @@
 
 import pandas as pd
 import numpy as np
-<<<<<<< HEAD
 import warnings
-=======
 import matplotlib.pyplot as plt
 import seaborn as sns
 
->>>>>>> master
 import statsmodels.api as sm
 from statsmodels.sandbox.regression.predstd import wls_prediction_std
 from scipy.stats.mstats import mquantiles
@@ -83,16 +80,10 @@ class PyNM:
         probands = self.data.loc[(self.data[self.group] == self.PROB)]
         prob_mask = self.data.index.isin(probands.index)
         return ctr_mask, prob_mask
-<<<<<<< HEAD
-    
-    #Default values for age in days
-    def create_bins(self, min_age=-1, max_age=-1, min_score=-1, max_score=-1, bin_spacing = 365 / 8, bin_width = 365 * 1.5):
-=======
 
         # Default values for age in days
     def create_bins(self, min_age=-1, max_age=-1, min_score=-1, max_score=-1,
                     bin_spacing=8, bin_width=1.5):
->>>>>>> master
         if min_age == -1:
             min_age = self.data[self.conf].min()
         if max_age == -1:
