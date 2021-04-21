@@ -9,6 +9,15 @@ from gpytorch.variational import CholeskyVariationalDistribution
 from gpytorch.variational import VariationalStrategy
 
 class GPModel(ApproximateGP):
+    """ Class for GPyTorch model.
+
+    Attributes
+    ----------
+    mean_module : gpytorch Mean
+        Module to calculate mean.
+    covar_module : gpytorch Kernel
+        Module to calculate covariance.
+    """
     def __init__(self, inducing_points):
         variational_distribution = CholeskyVariationalDistribution(inducing_points.size(0))
         variational_strategy = VariationalStrategy(self, inducing_points, variational_distribution, learn_inducing_locations=True)
@@ -23,6 +32,27 @@ class GPModel(ApproximateGP):
 
 
 class SVGP:
+    """ Class for SVGP model.
+
+    Attributes
+    ----------
+    train_loader: pytorch DataLoader
+        DataLoader for training data.
+    test_loader: pytorch DataLoader
+        DataLoader for test data.
+    inducing_points: array
+        Subset of training data to use as inducing points.
+    n_train: int
+        Number of training points.
+    n_test: int
+        Number of test points.
+    model: GPModel
+        Instance of GPModel class.
+    likelihood: gpytorch Likelihood
+        Gaussian likelihood function.
+    loss: list
+        Loss for each epoch of training.
+    """
     def __init__(self,conf_mat,score,ctr_mask,n_inducing=500,batch_size=256):
         # Get data in torch format
         X = torch.from_numpy(conf_mat)
@@ -51,8 +81,17 @@ class SVGP:
         if torch.cuda.is_available():
             self.model = self.model.cuda()
             self.likelihood = self.likelihood.cuda()
+        
+        self.loss = []
     
     def train(self,num_epochs=20):
+        """ Trains the SVGP model.
+
+        Parameters
+        ----------
+        num_epochs: int
+            Number of epochs (full passes through dataset) to train for.
+        """
         self.model.train()
         self.likelihood.train()
 
@@ -61,7 +100,6 @@ class SVGP:
         # Loss object. We're using the VariationalELBO
         mll = gpytorch.mlls.VariationalELBO(self.likelihood, self.model, num_data=self.n_train)
 
-        self.loss = []
         epochs_iter = tqdm(range(num_epochs), desc="Epoch")
         for i in epochs_iter:
         # Within each iteration, we will go over each minibatch of data
@@ -76,6 +114,15 @@ class SVGP:
             self.loss.append(loss.item())
     
     def predict(self):
+        """ Predict from SVGP model.
+
+        Returns
+        ----------
+        array
+            Model predictions (mean of predictive distribution).
+        array
+            Model uncertainty (standard deviation of predictive distribution).
+        """
         self.model.eval()
         self.likelihood.eval()
 

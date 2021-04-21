@@ -32,6 +32,20 @@ from sklearn.gaussian_process.kernels import Matern, WhiteKernel, ConstantKernel
 
 
 def read_confounds(confounds):
+    """ Process input list of confounds.
+
+    Parameters
+    ----------
+    confounds : list of str
+        List of confounds with categorical variables indicated by C(var).
+
+    Returns
+    -------
+    list
+        List of all confounds without wrapper on categorical variables: C(var) -> var.
+    list
+        List of only categorical confounds without wrapper.
+    """
     # Find categorical values in confounds and clean format
     categorical = []
     clean_confounds = []
@@ -45,6 +59,36 @@ def read_confounds(confounds):
 
 
 class PyNM:
+    """ Class to run normative modeling using LOESS, centiles, or GP model.
+
+    Attributes
+    ----------
+    data : dataframe
+        Dataset to fit model, must at least contain columns corresponding to 'group',
+        'score', and 'conf'.
+    score : str
+        Label of column from data with score (response variable).
+    group : str
+        Label of column from data that encodes wether subjects are probands or controls.
+    CTR : str or int
+        Label of controls in 'group' column can be 'CTR' or 0.
+    PROB: str or int
+        Label of probands in 'group' column can be 'PRB' or 1.
+    conf: str
+        Label of column from data with confound to use for LOESS and centiles models.
+    confounds: list of str
+        List of labels of columns from data with confounds to use for 
+        GP model with categorical values denoted by C(var).
+    bins:    
+    bin_count:
+    zm:
+    zstd:
+    zci:
+    z:
+    error_mea:
+    error_med:
+    """
+
     def __init__(self, data, score='score', group='group', conf='age', confounds=['age', 'C(sex)', 'C(site)']):
         self.data = data.copy()
         self.score = score
@@ -65,7 +109,7 @@ class PyNM:
         self.set_group_names()
 
     def set_group_names(self):
-        """Read whether subjects are labeled CTR/PROB or 0/1 and set accordingly."""
+        """ Read whether subjects in data are labeled CTR/PROB or 0/1 and set labels accordingly."""
         labels = list(self.data[self.group].unique())
         if ('CTR' in labels) or ('PROB' in labels):
             self.CTR = 'CTR'
@@ -75,6 +119,15 @@ class PyNM:
             self.PROB = 1
 
     def get_masks(self):
+        """ Get masks from data corresponding to controls and probands.
+
+        Returns
+        -------
+        array
+            Control mask: controls marked as True.
+        array
+            Proband mask: probands marked as True.
+        """
         ctr = self.data.loc[(self.data[self.group] == self.CTR)]
         ctr_mask = self.data.index.isin(ctr.index)
         probands = self.data.loc[(self.data[self.group] == self.PROB)]
@@ -240,6 +293,14 @@ class PyNM:
         return result
 
     def get_conf_mat(self):
+        """ Get confounds properly formatted from dataframe and input list.
+
+        Returns
+        -------
+        array
+            Confounds with categorical values dummy encoded. Dummy encoding keeps k-1
+            dummies out of k categorical levels.
+        """
         conf_clean, conf_cat = read_confounds(self.confounds)
         conf_mat = pd.get_dummies(self.data[conf_clean], columns=conf_cat, drop_first=True)
         return conf_mat.to_numpy()
@@ -264,10 +325,31 @@ class PyNM:
             raise ValueError('Method must be one of "auto","approx", or "exact".')
 
     def gp_normative_model(self,length_scale=1,nu=2.5, method='auto',batch_size=256,n_inducing=500,num_epochs=20):
-        """Compute gaussian process normative model.
-           length_scale: length scale parameter of Matern kernel
-           nu: nu parameter of Matern kernel
-           For Matern kernel parameters see scikit-learn documentation https://scikit-learn.org/stable/modules/generated/sklearn.gaussian_process.kernels.Matern.html."""
+        """ Compute gaussian process normative model. Gaussian process regression is computed using
+        the Matern Kernel with an added constant and white noise. For Matern kernel see scikit-learn documentation:
+        https://scikit-learn.org/stable/modules/generated/sklearn.gaussian_process.kernels.Matern.html.
+
+        Parameters
+        -------
+        length_scale: float
+            Length scale parameter of Matern kernel.
+        nu: float
+            Nu parameter of Matern kernel.
+        method: str
+            Which method to use, can be 'exact' for exact GP regression, 'approx' for SVGP,
+            or 'auto' which will set the method according to the size of the data. Default value is 'auto'.
+        batch_size: int
+            Batch size for SVGP model training and prediction. Default value is 256.
+        n_inducing: int
+            Number of inducing points for SVGP model. Default value is 500.
+        num_epochs: int
+            Number of epochs (passes through entire dataset) to train SVGP for. Default value is 20.
+
+        Returns
+        -------
+        array
+            Residuals of normative model.
+        """
         # get proband and control masks
         ctr_mask, prob_mask = self.get_masks()
 
@@ -302,10 +384,40 @@ class PyNM:
             self.data['GP_nmodel_residuals'] = y_true - y_pred
 
     def svgp_normative_model(self,conf_mat,score,ctr_mask,nu=2.5,batch_size=256,n_inducing=500,num_epochs=20):
+        """ Compute SVGP model. See GPyTorch documentation for further details:
+        https://docs.gpytorch.ai/en/v1.1.1/examples/04_Variational_and_Approximate_GPs/SVGP_Regression_CUDA.html#Creating-a-SVGP-Model.
+
+        Parameters
+        -------
+        conf_mat: array
+            Confounds with categorical values dummy encoded.
+        score: array
+            Score/response variable.
+        ctr_mask: array
+            Mask (boolean array) with controls marked True.
+        nu: float
+            Nu parameter of Matern kernel.
+        batch_size: int
+            Batch size for SVGP model training and prediction. Default value is 256.
+        n_inducing: int
+            Number of inducing points for SVGP model. Default value is 500.
+        num_epochs: int
+            Number of epochs (passes through entire dataset) to train SVGP for. Default value is 20.
+        
+        Raises
+        -------
+        ImportError
+            GPyTorch or it's dependencies aren't installed.
+
+        Returns
+        -------
+        array
+            Loss per epoch of training (temp for debugging).
+        """
         try:
             from pynm.approx import SVGP
         except:
-            print("GPyTorch and it's dependencies must be installed to use the SVGP model.")
+            raise ImportError("GPyTorch and it's dependencies must be installed to use the SVGP model.")
         else:
             svgp = SVGP(conf_mat,score,ctr_mask,n_inducing=n_inducing,batch_size=batch_size)
             svgp.train(num_epochs=num_epochs)
