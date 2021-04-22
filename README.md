@@ -78,5 +78,4 @@ optional arguments:
                                     See documentation for details. Default value is 1.
                                     
   --nu NU                           Nu of Matern kernel for exact and SVGP model. 
-                                    See documentation for details. Default value is 2.5.
 ```

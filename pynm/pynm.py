@@ -6,13 +6,16 @@
 # author          : Guillaume Dumas (Institut Pasteur/Université de Montréal)
 #                   Annabelle Harvey (Université de Montréal)
 # date            : 2021-04-15
-# notes           : The input dataframe column passed to --group must either have
-#                   controls marked as "CTR" and probands as "PROB", or controls marked as 0 and probands as 1.
+# notes           : The input dataframe column passed to --group must either
+#                   have controls marked as "CTR" and probands as "PROB", or
+#                   controls marked as 0 and probands as 1.
 #                   The --pheno_p is for the path to the input dataframe.
-#                   The --out_p flag is for the path to save the output dataframe, include the filename
-#                   formatted as 'filename.csv'. The confounds columns for the gaussian process
-#                   model must be specified using the --confounds flag. The confound for the LOESS and centiles
-#                   models must be specified using the --conf flag.
+#                   The --out_p flag is for the path to save the output
+#                   dataframe, including filename formatted as 'filename.csv'.
+#                   The confounds columns for the gaussian process model must
+#                   be specified using the --confounds flag. The confound for
+#                   the LOESS and centiles models must be specified using the
+#                   --conf flag.
 # licence         : BSD 3-Clause License
 # python_version  : 3.7
 # ==============================================================================
@@ -137,6 +140,19 @@ class PyNM:
         # Default values for age in days
     def create_bins(self, min_age=-1, max_age=-1, min_score=-1, max_score=-1,
                     bin_spacing=8, bin_width=1.5):
+        """[summary]
+
+        Args:
+            min_age (int, optional): [description]. Defaults to -1.
+            max_age (int, optional): [description]. Defaults to -1.
+            min_score (int, optional): [description]. Defaults to -1.
+            max_score (int, optional): [description]. Defaults to -1.
+            bin_spacing (int, optional): [description]. Defaults to 8.
+            bin_width (float, optional): [description]. Defaults to 1.5.
+
+        Returns:
+            [type]: [description]
+        """
         if min_age == -1:
             min_age = self.data[self.conf].min()
         if max_age == -1:
@@ -158,7 +174,11 @@ class PyNM:
         return self.bins
 
     def bins_num(self):
-        """Give the number of ctr used for the age bin each participant is in."""
+        """Give the number of ctr used for the age bin each participant is in.
+
+        Returns:
+            [type]: [description]
+        """
         if self.bins is None:
             self.create_bins()
         dists = [np.abs(conf - self.bins) for conf in self.data[self.conf]]
@@ -168,14 +188,23 @@ class PyNM:
         return n_ctr
 
     def loess_rank(self):
+        """Associate ranks to LOESS normative scores.
+        """
         self.data.loc[(self.data.LOESS_nmodel <= -2), 'LOESS_rank'] = -2
-        self.data.loc[(self.data.LOESS_nmodel > -2) & (self.data.LOESS_nmodel <= -1), 'LOESS_rank'] = -1
-        self.data.loc[(self.data.LOESS_nmodel > -1) & (self.data.LOESS_nmodel <= +1), 'LOESS_rank'] = 0
-        self.data.loc[(self.data.LOESS_nmodel > +1) & (self.data.LOESS_nmodel <= +2), 'LOESS_rank'] = 1
+        self.data.loc[(self.data.LOESS_nmodel > -2) &
+                      (self.data.LOESS_nmodel <= -1), 'LOESS_rank'] = -1
+        self.data.loc[(self.data.LOESS_nmodel > -1) &
+                      (self.data.LOESS_nmodel <= +1), 'LOESS_rank'] = 0
+        self.data.loc[(self.data.LOESS_nmodel > +1) &
+                      (self.data.LOESS_nmodel <= +2), 'LOESS_rank'] = 1
         self.data.loc[(self.data.LOESS_nmodel > +2), 'LOESS_rank'] = 2
 
     def loess_normative_model(self):
-        """Compute classical normative model."""
+        """Compute classical normative model.
+
+        Returns:
+            [type]: [description]
+        """
         if self.bins is None:
             self.create_bins()
         # format data
@@ -191,7 +220,7 @@ class PyNM:
 
         for i, bin_center in enumerate(self.bins):
             mu = np.array(bin_center)  # bin_center value (age or conf)
-            bin_mask = (abs(ctr[:, :1] - mu) < self.bin_width) * 1.  # one hot mask
+            bin_mask = (abs(ctr[:, :1] - mu) < self.bin_width) * 1.
             idx = [u for (u, v) in np.argwhere(bin_mask)]
 
             scores = ctr[idx, 1]
@@ -199,8 +228,10 @@ class PyNM:
 
             # if more than 2 non NaN values do the model
             if (~np.isnan(scores)).sum() > 2:
-                mod = sm.WLS(scores, sm.tools.add_constant(adj_conf, has_constant='add'),
-                             missing='drop', weight=bin_mask.flatten()[idx], hasconst=True).fit()
+                mod = sm.WLS(scores, sm.tools.add_constant(adj_conf, 
+                                                           has_constant='add'),
+                             missing='drop', weight=bin_mask.flatten()[idx],
+                             hasconst=True).fit()
                 self.zm[i] = mod.params[0]  # mean
 
                 # std and confidence intervals
@@ -233,14 +264,23 @@ class PyNM:
         return nmodel
 
     def centiles_rank(self):
+        """Associate ranks to centiles associated with normative modeling.
+        """
         self.data.loc[(self.data.Centiles_nmodel <= 5), 'Centiles_rank'] = -2
-        self.data.loc[(self.data.Centiles_nmodel > 5) & (self.data.Centiles_nmodel <= 25), 'Centiles_rank'] = -1
-        self.data.loc[(self.data.Centiles_nmodel > 25) & (self.data.Centiles_nmodel <= 75), 'Centiles_rank'] = 0
-        self.data.loc[(self.data.Centiles_nmodel > 75) & (self.data.Centiles_nmodel <= 95), 'Centiles_rank'] = 1
+        self.data.loc[(self.data.Centiles_nmodel > 5) &
+                      (self.data.Centiles_nmodel <= 25), 'Centiles_rank'] = -1
+        self.data.loc[(self.data.Centiles_nmodel > 25) &
+                      (self.data.Centiles_nmodel <= 75), 'Centiles_rank'] = 0
+        self.data.loc[(self.data.Centiles_nmodel > 75) &
+                      (self.data.Centiles_nmodel <= 95), 'Centiles_rank'] = 1
         self.data.loc[(self.data.Centiles_nmodel > 95), 'Centiles_rank'] = 2
 
     def centiles_normative_model(self):
-        """Compute centiles normative model."""
+        """Compute centiles normative model.
+
+        Returns:
+            [type]: [description]
+        """
         if self.bins is None:
             self.create_bins()
 
@@ -302,7 +342,8 @@ class PyNM:
             dummies out of k categorical levels.
         """
         conf_clean, conf_cat = read_confounds(self.confounds)
-        conf_mat = pd.get_dummies(self.data[conf_clean], columns=conf_cat, drop_first=True)
+        conf_mat = pd.get_dummies(self.data[conf_clean], columns=conf_cat, 
+                                  drop_first=True)
         return conf_mat.to_numpy()
     
     def get_score(self):
@@ -433,8 +474,15 @@ class PyNM:
             return svgp.loss
 
     def _plot(self, plot_type=None):
-        """
-        Plot the data with the normative model overlaid.
+        """Plot the data with the normative model overlaid.
+
+        Args:
+            plot_type (str, optional): type of plot among "LOESS" (local polynomial),
+            "Centiles", "GP" (gaussian processes), or "None" (data points only). 
+            Defaults to None.
+
+        Returns:
+            Axis: handle for the matplotlib axis of the plot.
         """
         ax = sns.scatterplot(data=self.data, x='age', y='score',
                              hue='group', style='group')
@@ -448,8 +496,12 @@ class PyNM:
         return ax
 
     def plot(self, plot_type=None):
-        """
-        Plot the data with the normative model overlaid.
+        """Plot the data with the normative model overlaid.
+
+        Args:
+            plot_type (str, optional): type of plot among "LOESS"
+            (local polynomial), "Centiles", "GP" (gaussian processes),
+            or "None" (data points only). Defaults to None.
         """
         plt.figure()
         self._plot(plot_type)
