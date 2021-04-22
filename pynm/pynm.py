@@ -256,7 +256,7 @@ class PyNM:
             idage = np.argmin(np.abs(ctr[i, 1] - self.bins))
             MSE += (ctr[i, 0] - self.zm[idage])**2
         MSE /= ctr.shape[1]
-        MSE = self.error_mea**0.5
+        MSE = MSE**0.5
         self.SMSE_LOESS = MSE / np.std(ctr[:, 1])
 
         dists = [np.abs(conf - self.bins) for conf in self.data[self.conf]]
@@ -428,8 +428,8 @@ class PyNM:
             self.SMSE_GP = (np.mean(y_true - y_pred)**2)**0.5 / np.std(score[ctr_mask])
 
             SLL = ( 0.5 * np.log(2 * np.pi * sigma**2) +
-                     (ytrue - ypred)**2 / (2 * sigma**2) -
-                     (ytrue - np.mean(score[ctr_mask]))**2 /
+                     (y_true - y_pred)**2 / (2 * sigma**2) -
+                     (y_true - np.mean(score[ctr_mask]))**2 /
                      (2 * np.std(score[ctr_mask])) )
 
             self.MSLL = np.mean(SLL)
