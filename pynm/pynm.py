@@ -22,6 +22,7 @@
 
 import pandas as pd
 import numpy as np
+import warnings
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -40,6 +41,7 @@ def read_confounds(confounds):
     ----------
     confounds : list of str
         List of confounds with categorical variables indicated by C(var).
+
     Returns
     -------
     list
@@ -65,7 +67,8 @@ class PyNM:
     Attributes
     ----------
     data : dataframe
-        first name of the person
+        Dataset to fit model, must at least contain columns corresponding to 'group',
+        'score', and 'conf'.
     score : str
         Label of column from data with score (response variable).
     group : str
@@ -342,8 +345,27 @@ class PyNM:
         conf_mat = pd.get_dummies(self.data[conf_clean], columns=conf_cat, 
                                   drop_first=True)
         return conf_mat.to_numpy()
+    
+    def get_score(self):
+        return self.data[self.score].to_numpy()
+    
+    def use_approx(self,method='auto'):
+        if method == 'auto':
+            if self.data.shape[0] > 1000:
+                return True
+            else:
+                return False
+        elif method == 'approx':
+            return True
+        elif method == 'exact':
+            if self.data.shape[0] > 1000:
+                warnings.warn("Exact GP model with over 1000 data points requires "
+                                "large amounts of time and memory, continuing with exact model.",Warning)
+            return False
+        else:
+            raise ValueError('Method must be one of "auto","approx", or "exact".')
 
-    def gp_normative_model(self, length_scale=1, nu=2.5):
+    def gp_normative_model(self,length_scale=1,nu=2.5, method='auto',batch_size=256,n_inducing=500,num_epochs=20):
         """ Compute gaussian process normative model. Gaussian process regression is computed using
         the Matern Kernel with an added constant and white noise. For Matern kernel see scikit-learn documentation:
         https://scikit-learn.org/stable/modules/generated/sklearn.gaussian_process.kernels.Matern.html.
@@ -354,7 +376,16 @@ class PyNM:
             Length scale parameter of Matern kernel.
         nu: float
             Nu parameter of Matern kernel.
-        
+        method: str
+            Which method to use, can be 'exact' for exact GP regression, 'approx' for SVGP,
+            or 'auto' which will set the method according to the size of the data. Default value is 'auto'.
+        batch_size: int
+            Batch size for SVGP model training and prediction. Default value is 256.
+        n_inducing: int
+            Number of inducing points for SVGP model. Default value is 500.
+        num_epochs: int
+            Number of epochs (passes through entire dataset) to train SVGP for. Default value is 20.
+
         Returns
         -------
         array
@@ -369,21 +400,78 @@ class PyNM:
         # Define independent and response variables
         y = self.data[self.score][ctr_mask].to_numpy().reshape(-1, 1)
         X = conf_mat[ctr_mask]
+        
+        score = self.get_score()
+        
+        if self.use_approx(method=method):
+            self.loss = self.svgp_normative_model(conf_mat,score,ctr_mask,nu=nu,batch_size=batch_size,n_inducing=n_inducing,num_epochs=num_epochs)
+        
+        else:
+            #Define independent and response variables
+            y = score[ctr_mask].reshape(-1,1)
+            X = conf_mat[ctr_mask]
 
-        # Fit normative model on controls
-        kernel = (ConstantKernel() + WhiteKernel(noise_level=1) +
-                  Matern(length_scale=length_scale, nu=nu))
-        gp = gaussian_process.GaussianProcessRegressor(kernel=kernel)
-        gp.fit(X, y)
+            #Fit normative model on controls
+            kernel = ConstantKernel() + WhiteKernel(noise_level=1) + Matern(length_scale=length_scale, nu=nu)
+            gp = gaussian_process.GaussianProcessRegressor(kernel=kernel)
+            gp.fit(X, y)
 
-        # Predict normative values
-        y_pred, sigma = gp.predict(conf_mat, return_std=True)
-        y_true = self.data[self.score].to_numpy().reshape(-1, 1)
+            #Predict normative values
+            y_pred, sigma = gp.predict(conf_mat, return_std=True)
+            y_true = self.data[self.score].to_numpy().reshape(-1,1)
 
-        self.data['GP_nmodel_pred'] = y_pred
-        self.data['GP_nmodel_sigma'] = sigma
-        self.data['GP_nmodel_residuals'] = y_true - y_pred
-        return y_true - y_pred
+            self.data['GP_nmodel_pred'] = y_pred
+            self.data['GP_nmodel_sigma'] = sigma
+            self.data['GP_nmodel_residuals'] = y_true - y_pred
+
+    def svgp_normative_model(self,conf_mat,score,ctr_mask,nu=2.5,batch_size=256,n_inducing=500,num_epochs=20):
+        """ Compute SVGP model. See GPyTorch documentation for further details:
+        https://docs.gpytorch.ai/en/v1.1.1/examples/04_Variational_and_Approximate_GPs/SVGP_Regression_CUDA.html#Creating-a-SVGP-Model.
+
+        Parameters
+        -------
+        conf_mat: array
+            Confounds with categorical values dummy encoded.
+        score: array
+            Score/response variable.
+        ctr_mask: array
+            Mask (boolean array) with controls marked True.
+        nu: float
+            Nu parameter of Matern kernel.
+        batch_size: int
+            Batch size for SVGP model training and prediction. Default value is 256.
+        n_inducing: int
+            Number of inducing points for SVGP model. Default value is 500.
+        num_epochs: int
+            Number of epochs (passes through entire dataset) to train SVGP for. Default value is 20.
+        
+        Raises
+        -------
+        ImportError
+            GPyTorch or it's dependencies aren't installed.
+
+        Returns
+        -------
+        array
+            Loss per epoch of training (temp for debugging).
+        """
+        try:
+            from pynm.approx import SVGP
+        except:
+            raise ImportError("GPyTorch and it's dependencies must be installed to use the SVGP model.")
+        else:
+            svgp = SVGP(conf_mat,score,ctr_mask,n_inducing=n_inducing,batch_size=batch_size)
+            svgp.train(num_epochs=num_epochs)
+            means, sigmas = svgp.predict()
+
+            y_pred = means.numpy()
+            y_true = score
+            residuals = (y_true - y_pred).astype(float)
+
+            self.data['GP_nmodel_pred'] = y_pred
+            self.data['GP_nmodel_sigma'] = sigmas.numpy()
+            self.data['GP_nmodel_residuals'] = residuals
+            return svgp.loss
 
     def _plot(self, plot_type=None):
         """Plot the data with the normative model overlaid.

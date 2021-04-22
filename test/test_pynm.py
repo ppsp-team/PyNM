@@ -148,10 +148,83 @@ class TestBasic:
         for i in range(3):
             assert not isinstance(conf_mat[0, i], str)
 
+    def test_use_approx_auto_small(self):
+        data = generate_data(randseed=3)
+        m = pynm.PyNM(data)
+        assert m.use_approx(method='auto') == False
+
+    def test_use_approx_auto_big(self):
+        data = generate_data(randseed=3,sample_size=1000)
+        m = pynm.PyNM(data)
+        assert m.use_approx(method='auto') == True
+
+    def test_use_approx_approx(self):
+        data = generate_data(randseed=3,sample_size=1000)
+        m = pynm.PyNM(data)
+        assert m.use_approx(method='approx') == True
+    
+    def test_use_approx_exact(self):
+        data = generate_data(randseed=3,sample_size=1000)
+        m = pynm.PyNM(data)
+        with pytest.warns(Warning) as record:
+            use_approx = m.use_approx(method='exact')
+        assert len(record) == 1
+        assert record[0].message.args[0] == "Exact GP model with over 1000 data points requires large amounts of time and memory, continuing with exact model."
+        assert use_approx == False
+
     def test_gp_normative_model(self):
         data = generate_data(randseed=3)
         m = pynm.PyNM(data)
         m.gp_normative_model()
+        assert 'GP_nmodel_pred' in m.data.columns
+        assert math.isclose(0,m.data['GP_nmodel_residuals'].mean(),abs_tol=0.5)
+    
+
+class TestApprox:
+    def test_svgp_init(self):
+        from pynm.approx import SVGP
+
+        data = generate_data(randseed=3)
+        m = pynm.PyNM(data)
+        conf_mat = m.get_conf_mat()
+        ctr,prob = m.get_masks()
+        score = m.get_score()
+        svgp = SVGP(conf_mat,score,ctr)
+        assert svgp.n_train == 5 
+        assert svgp.n_test == 6
+    
+    def test_svgp_train(self):
+        from pynm.approx import SVGP
+
+        data = generate_data(randseed=3)
+        m = pynm.PyNM(data)
+        conf_mat = m.get_conf_mat()
+        ctr,prob = m.get_masks()
+        score = m.get_score()
+        svgp = SVGP(conf_mat,score,ctr)
+        svgp.train(num_epochs = 2)
+
+        assert len(svgp.loss) == 2
+    
+    def test_svgp_predict(self):
+        from pynm.approx import SVGP
+
+        data = generate_data(randseed=3)
+        m = pynm.PyNM(data)
+        conf_mat = m.get_conf_mat()
+        ctr,prob = m.get_masks()
+        score = m.get_score()
+        svgp = SVGP(conf_mat,score,ctr)
+        svgp.train(num_epochs = 2)
+        means,sigmas = svgp.predict()
+        assert means.size(0) == 6
+        assert sigmas.size(0) == 6
+
+    def test_svgp_model(self):
+        data = generate_data(randseed=3)
+        m = pynm.PyNM(data)
+        m.gp_normative_model(method='approx')
+
         assert 'GP_nmodel_pred' in m.data.columns
         assert math.isclose(0, m.data['GP_nmodel_residuals'].mean(), abs_tol=0.5)
 

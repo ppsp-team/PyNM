@@ -8,9 +8,9 @@ For a more advanced implementation, see the Python librairie [PCNtoolkit](https:
 
 ## Roadmap
 
-- [ ] Optimize for large input size with [GPflow](https://github.com/GPflow/GPflow) or [GPyTorch](https://gpytorch.ai/)
+- [x] Optimize for large input size with [GPyTorch](https://gpytorch.ai/)
 - [x] Addition of the commande line utility (c.f. [post](https://gehrcke.de/2014/02/distributing-a-python-command-line-application/))
-- [ ] Coding of key unit tests
+- [x] Coding of key unit tests
 - [ ] Creation of a clear tutorial
 - [ ] Documentation of all the functions
 - [ ] Submission to JO
@@ -60,10 +60,22 @@ optional arguments:
                                     be encoded with str labels using 'PROB' for probands
                                     and 'CTR' for controls or with int labels using 1 for
                                     probands and 0 for controls. Default value is 'group'.
-                                  
-  --length_scale LENGTH_SCALE       Length scale of Matern kernel. 
+                                    
+  --method METHOD                   Method to use for the GP model. Can be set to
+                                    'auto','approx' or 'exact'. In 'auto' mode, the exact
+                                    model will be used for datasets smaller than 1000 data
+                                    points. SVGP is used for the approximate model. 
+                                    See documentation for details. Default value is 'auto'.
+                                    
+  --num_epochs NUM_EPOCHS           Number of training epochs for SVGP model. 
+                                    See documentation for details. Default value is 20.
+                                    
+  --n_inducing N_INDUCING           Number of inducing points for SVGP model. 
+                                    See documentation for details. Default value is 500.
+  --batch_size BATCH_SIZE           Batch size for training and predicting from SVGP
+                                    model. See documentation for details. Default value is 256.
+  --length_scale LENGTH_SCALE       Length scale of Matern kernel for exact model. 
                                     See documentation for details. Default value is 1.
                                     
-  --nu NU                           Nu of Matern kernel. 
-                                    See documentation for details. Default value is 2.5.
+  --nu NU                           Nu of Matern kernel for exact and SVGP model. 
 ```
