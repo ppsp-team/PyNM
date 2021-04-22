@@ -6,13 +6,16 @@
 # author          : Guillaume Dumas (Institut Pasteur/Université de Montréal)
 #                   Annabelle Harvey (Université de Montréal)
 # date            : 2021-04-15
-# notes           : The input dataframe column passed to --group must either have
-#                   controls marked as "CTR" and probands as "PROB", or controls marked as 0 and probands as 1.
+# notes           : The input dataframe column passed to --group must either
+#                   have controls marked as "CTR" and probands as "PROB", or
+#                   controls marked as 0 and probands as 1.
 #                   The --pheno_p is for the path to the input dataframe.
-#                   The --out_p flag is for the path to save the output dataframe, include the filename
-#                   formatted as 'filename.csv'. The confounds columns for the gaussian process
-#                   model must be specified using the --confounds flag. The confound for the LOESS and centiles
-#                   models must be specified using the --conf flag.
+#                   The --out_p flag is for the path to save the output
+#                   dataframe, including filename formatted as 'filename.csv'.
+#                   The confounds columns for the gaussian process model must
+#                   be specified using the --confounds flag. The confound for
+#                   the LOESS and centiles models must be specified using the
+#                   --conf flag.
 # licence         : BSD 3-Clause License
 # python_version  : 3.7
 # ==============================================================================
@@ -31,6 +34,19 @@ from sklearn.gaussian_process.kernels import Matern, WhiteKernel, ConstantKernel
 
 
 def read_confounds(confounds):
+    """Process the confounds and detect which ones are categorical.
+
+    Note:
+        The confounds are using the XXX convention.
+        C(X) indicate confound X is categorical.
+
+    Args:
+        confounds [str list]: list of confounds names.
+
+    Returns:
+        clean_confounds [str]: [description]
+        categorical [str]: [description]
+    """
     # Find categorical values in confounds and clean format
     categorical = []
     clean_confounds = []
@@ -44,7 +60,18 @@ def read_confounds(confounds):
 
 
 class PyNM:
-    def __init__(self, data, score='score', group='group', conf='age', confounds=['age', 'C(sex)', 'C(site)']):
+    def __init__(self, data, score='score', group='group', conf='age',
+                 confounds=['age', 'C(sex)', 'C(site)']):
+        """[summary]
+
+        Args:
+            data ([type]): [description]
+            score (str, optional): [description]. Defaults to 'score'.
+            group (str, optional): [description]. Defaults to 'group'.
+            conf (str, optional): [description]. Defaults to 'age'.
+            confounds (list, optional): [description].
+                Defaults to ['age', 'C(sex)', 'C(site)'].
+        """
         self.data = data.copy()
         self.score = score
         self.group = group
@@ -64,7 +91,8 @@ class PyNM:
         self.set_group_names()
 
     def set_group_names(self):
-        """Read whether subjects are labeled CTR/PROB or 0/1 and set accordingly."""
+        """Read whether subjects are labeled CTR/PROB or 0/1 and set accordingly.
+        """
         labels = list(self.data[self.group].unique())
         if ('CTR' in labels) or ('PROB' in labels):
             self.CTR = 'CTR'
@@ -74,6 +102,12 @@ class PyNM:
             self.PROB = 1
 
     def get_masks(self):
+        """Extract the boolean masks for CTR and PROB participants.
+
+        Returns:
+            ctr_mask [bool array]: boolean array with True if CTR.
+            prob_mask [bool array]: boolean array with True if PROB.
+        """
         ctr = self.data.loc[(self.data[self.group] == self.CTR)]
         ctr_mask = self.data.index.isin(ctr.index)
         probands = self.data.loc[(self.data[self.group] == self.PROB)]
@@ -83,6 +117,19 @@ class PyNM:
         # Default values for age in days
     def create_bins(self, min_age=-1, max_age=-1, min_score=-1, max_score=-1,
                     bin_spacing=8, bin_width=1.5):
+        """[summary]
+
+        Args:
+            min_age (int, optional): [description]. Defaults to -1.
+            max_age (int, optional): [description]. Defaults to -1.
+            min_score (int, optional): [description]. Defaults to -1.
+            max_score (int, optional): [description]. Defaults to -1.
+            bin_spacing (int, optional): [description]. Defaults to 8.
+            bin_width (float, optional): [description]. Defaults to 1.5.
+
+        Returns:
+            [type]: [description]
+        """
         if min_age == -1:
             min_age = self.data[self.conf].min()
         if max_age == -1:
@@ -104,7 +151,11 @@ class PyNM:
         return self.bins
 
     def bins_num(self):
-        """Give the number of ctr used for the age bin each participant is in."""
+        """Give the number of ctr used for the age bin each participant is in.
+
+        Returns:
+            [type]: [description]
+        """
         if self.bins is None:
             self.create_bins()
         dists = [np.abs(conf - self.bins) for conf in self.data[self.conf]]
@@ -114,14 +165,23 @@ class PyNM:
         return n_ctr
 
     def loess_rank(self):
+        """Associate ranks to LOESS normative scores.
+        """
         self.data.loc[(self.data.LOESS_nmodel <= -2), 'LOESS_rank'] = -2
-        self.data.loc[(self.data.LOESS_nmodel > -2) & (self.data.LOESS_nmodel <= -1), 'LOESS_rank'] = -1
-        self.data.loc[(self.data.LOESS_nmodel > -1) & (self.data.LOESS_nmodel <= +1), 'LOESS_rank'] = 0
-        self.data.loc[(self.data.LOESS_nmodel > +1) & (self.data.LOESS_nmodel <= +2), 'LOESS_rank'] = 1
+        self.data.loc[(self.data.LOESS_nmodel > -2) &
+                      (self.data.LOESS_nmodel <= -1), 'LOESS_rank'] = -1
+        self.data.loc[(self.data.LOESS_nmodel > -1) &
+                      (self.data.LOESS_nmodel <= +1), 'LOESS_rank'] = 0
+        self.data.loc[(self.data.LOESS_nmodel > +1) &
+                      (self.data.LOESS_nmodel <= +2), 'LOESS_rank'] = 1
         self.data.loc[(self.data.LOESS_nmodel > +2), 'LOESS_rank'] = 2
 
     def loess_normative_model(self):
-        """Compute classical normative model."""
+        """Compute classical normative model.
+
+        Returns:
+            [type]: [description]
+        """
         if self.bins is None:
             self.create_bins()
         # format data
@@ -137,7 +197,7 @@ class PyNM:
 
         for i, bin_center in enumerate(self.bins):
             mu = np.array(bin_center)  # bin_center value (age or conf)
-            bin_mask = (abs(ctr[:, :1] - mu) < self.bin_width) * 1.  # one hot mask
+            bin_mask = (abs(ctr[:, :1] - mu) < self.bin_width) * 1.
             idx = [u for (u, v) in np.argwhere(bin_mask)]
 
             scores = ctr[idx, 1]
@@ -145,8 +205,10 @@ class PyNM:
 
             # if more than 2 non NaN values do the model
             if (~np.isnan(scores)).sum() > 2:
-                mod = sm.WLS(scores, sm.tools.add_constant(adj_conf, has_constant='add'),
-                             missing='drop', weight=bin_mask.flatten()[idx], hasconst=True).fit()
+                mod = sm.WLS(scores, sm.tools.add_constant(adj_conf, 
+                                                           has_constant='add'),
+                             missing='drop', weight=bin_mask.flatten()[idx],
+                             hasconst=True).fit()
                 self.zm[i] = mod.params[0]  # mean
 
                 # std and confidence intervals
@@ -179,14 +241,23 @@ class PyNM:
         return nmodel
 
     def centiles_rank(self):
+        """Associate ranks to centiles associated with normative modeling.
+        """
         self.data.loc[(self.data.Centiles_nmodel <= 5), 'Centiles_rank'] = -2
-        self.data.loc[(self.data.Centiles_nmodel > 5) & (self.data.Centiles_nmodel <= 25), 'Centiles_rank'] = -1
-        self.data.loc[(self.data.Centiles_nmodel > 25) & (self.data.Centiles_nmodel <= 75), 'Centiles_rank'] = 0
-        self.data.loc[(self.data.Centiles_nmodel > 75) & (self.data.Centiles_nmodel <= 95), 'Centiles_rank'] = 1
+        self.data.loc[(self.data.Centiles_nmodel > 5) &
+                      (self.data.Centiles_nmodel <= 25), 'Centiles_rank'] = -1
+        self.data.loc[(self.data.Centiles_nmodel > 25) &
+                      (self.data.Centiles_nmodel <= 75), 'Centiles_rank'] = 0
+        self.data.loc[(self.data.Centiles_nmodel > 75) &
+                      (self.data.Centiles_nmodel <= 95), 'Centiles_rank'] = 1
         self.data.loc[(self.data.Centiles_nmodel > 95), 'Centiles_rank'] = 2
 
     def centiles_normative_model(self):
-        """Compute centiles normative model."""
+        """Compute centiles normative model.
+
+        Returns:
+            [type]: [description]
+        """
         if self.bins is None:
             self.create_bins()
 
@@ -239,15 +310,30 @@ class PyNM:
         return result
 
     def get_conf_mat(self):
+        """Generate the confound matrix based with categorical variable dummy encoded.
+
+        Returns:
+            array: counfounds matrix
+        """
         conf_clean, conf_cat = read_confounds(self.confounds)
-        conf_mat = pd.get_dummies(self.data[conf_clean], columns=conf_cat, drop_first=True)
+        conf_mat = pd.get_dummies(self.data[conf_clean], columns=conf_cat, 
+                                  drop_first=True)
         return conf_mat.to_numpy()
 
     def gp_normative_model(self, length_scale=1, nu=2.5):
         """Compute gaussian process normative model.
-           length_scale: length scale parameter of Matern kernel
-           nu: nu parameter of Matern kernel
-           For Matern kernel parameters see scikit-learn documentation https://scikit-learn.org/stable/modules/generated/sklearn.gaussian_process.kernels.Matern.html."""
+
+        Note:
+            For Matern kernel parameters see scikit-learn documentation
+            https://scikit-learn.org/stable/modules/generated/sklearn.gaussian_process.kernels.Matern.html.
+
+        Args:
+            length_scale (int, optional): scale of Matern kernel. Defaults to 1.
+            nu (float, optional): nu parameter of Matern kernel. Defaults to 2.5.
+
+        Returns:
+            array: residual of the model.
+        """
         # get proband and control masks
         ctr_mask, prob_mask = self.get_masks()
 
@@ -259,7 +345,8 @@ class PyNM:
         X = conf_mat[ctr_mask]
 
         # Fit normative model on controls
-        kernel = ConstantKernel() + WhiteKernel(noise_level=1) + Matern(length_scale=length_scale, nu=nu)
+        kernel = (ConstantKernel() + WhiteKernel(noise_level=1) +
+                  Matern(length_scale=length_scale, nu=nu))
         gp = gaussian_process.GaussianProcessRegressor(kernel=kernel)
         gp.fit(X, y)
 
@@ -273,8 +360,15 @@ class PyNM:
         return y_pred - y_true
 
     def _plot(self, plot_type=None):
-        """
-        Plot the data with the normative model overlaid.
+        """Plot the data with the normative model overlaid.
+
+        Args:
+            plot_type (str, optional): type of plot among "LOESS" (local polynomial),
+            "Centiles", "GP" (gaussian processes), or "None" (data points only). 
+            Defaults to None.
+
+        Returns:
+            Axis: handle for the matplotlib axis of the plot.
         """
         ax = sns.scatterplot(data=self.data, x='age', y='score',
                              hue='group', style='group')
@@ -288,8 +382,12 @@ class PyNM:
         return ax
 
     def plot(self, plot_type=None):
-        """
-        Plot the data with the normative model overlaid.
+        """Plot the data with the normative model overlaid.
+
+        Args:
+            plot_type (str, optional): type of plot among "LOESS"
+            (local polynomial), "Centiles", "GP" (gaussian processes),
+            or "None" (data points only). Defaults to None.
         """
         plt.figure()
         self._plot(plot_type)
