@@ -34,18 +34,18 @@ from sklearn.gaussian_process.kernels import Matern, WhiteKernel, ConstantKernel
 
 
 def read_confounds(confounds):
-    """Process the confounds and detect which ones are categorical.
+    """ Process input list of confounds.
 
-    Note:
-        The confounds are using the XXX convention.
-        C(X) indicate confound X is categorical.
-
-    Args:
-        confounds [str list]: list of confounds names.
-
-    Returns:
-        clean_confounds [str]: [description]
-        categorical [str]: [description]
+    Parameters
+    ----------
+    confounds : list of str
+        List of confounds with categorical variables indicated by C(var).
+    Returns
+    -------
+    list
+        List of all confounds without wrapper on categorical variables: C(var) -> var.
+    list
+        List of only categorical confounds without wrapper.
     """
     # Find categorical values in confounds and clean format
     categorical = []
@@ -60,18 +60,36 @@ def read_confounds(confounds):
 
 
 class PyNM:
-    def __init__(self, data, score='score', group='group', conf='age',
-                 confounds=['age', 'C(sex)', 'C(site)']):
-        """[summary]
+    """ Class to run normative modeling using LOESS, centiles, or GP model.
 
-        Args:
-            data ([type]): [description]
-            score (str, optional): [description]. Defaults to 'score'.
-            group (str, optional): [description]. Defaults to 'group'.
-            conf (str, optional): [description]. Defaults to 'age'.
-            confounds (list, optional): [description].
-                Defaults to ['age', 'C(sex)', 'C(site)'].
-        """
+    Attributes
+    ----------
+    data : dataframe
+        first name of the person
+    score : str
+        Label of column from data with score (response variable).
+    group : str
+        Label of column from data that encodes wether subjects are probands or controls.
+    CTR : str or int
+        Label of controls in 'group' column can be 'CTR' or 0.
+    PROB: str or int
+        Label of probands in 'group' column can be 'PRB' or 1.
+    conf: str
+        Label of column from data with confound to use for LOESS and centiles models.
+    confounds: list of str
+        List of labels of columns from data with confounds to use for 
+        GP model with categorical values denoted by C(var).
+    bins:    
+    bin_count:
+    zm:
+    zstd:
+    zci:
+    z:
+    error_mea:
+    error_med:
+    """
+
+    def __init__(self, data, score='score', group='group', conf='age', confounds=['age', 'C(sex)', 'C(site)']):
         self.data = data.copy()
         self.score = score
         self.group = group
@@ -91,8 +109,7 @@ class PyNM:
         self.set_group_names()
 
     def set_group_names(self):
-        """Read whether subjects are labeled CTR/PROB or 0/1 and set accordingly.
-        """
+        """ Read whether subjects in data are labeled CTR/PROB or 0/1 and set labels accordingly."""
         labels = list(self.data[self.group].unique())
         if ('CTR' in labels) or ('PROB' in labels):
             self.CTR = 'CTR'
@@ -102,11 +119,14 @@ class PyNM:
             self.PROB = 1
 
     def get_masks(self):
-        """Extract the boolean masks for CTR and PROB participants.
+        """ Get masks from data corresponding to controls and probands.
 
-        Returns:
-            ctr_mask [bool array]: boolean array with True if CTR.
-            prob_mask [bool array]: boolean array with True if PROB.
+        Returns
+        -------
+        array
+            Control mask: controls marked as True.
+        array
+            Proband mask: probands marked as True.
         """
         ctr = self.data.loc[(self.data[self.group] == self.CTR)]
         ctr_mask = self.data.index.isin(ctr.index)
@@ -310,10 +330,13 @@ class PyNM:
         return result
 
     def get_conf_mat(self):
-        """Generate the confound matrix based with categorical variable dummy encoded.
+        """ Get confounds properly formatted from dataframe and input list.
 
-        Returns:
-            array: counfounds matrix
+        Returns
+        -------
+        array
+            Confounds with categorical values dummy encoded. Dummy encoding keeps k-1
+            dummies out of k categorical levels.
         """
         conf_clean, conf_cat = read_confounds(self.confounds)
         conf_mat = pd.get_dummies(self.data[conf_clean], columns=conf_cat, 
@@ -321,18 +344,21 @@ class PyNM:
         return conf_mat.to_numpy()
 
     def gp_normative_model(self, length_scale=1, nu=2.5):
-        """Compute gaussian process normative model.
+        """ Compute gaussian process normative model. Gaussian process regression is computed using
+        the Matern Kernel with an added constant and white noise. For Matern kernel see scikit-learn documentation:
+        https://scikit-learn.org/stable/modules/generated/sklearn.gaussian_process.kernels.Matern.html.
 
-        Note:
-            For Matern kernel parameters see scikit-learn documentation
-            https://scikit-learn.org/stable/modules/generated/sklearn.gaussian_process.kernels.Matern.html.
-
-        Args:
-            length_scale (int, optional): scale of Matern kernel. Defaults to 1.
-            nu (float, optional): nu parameter of Matern kernel. Defaults to 2.5.
-
-        Returns:
-            array: residual of the model.
+        Parameters
+        -------
+        length_scale: float
+            Length scale parameter of Matern kernel.
+        nu: float
+            Nu parameter of Matern kernel.
+        
+        Returns
+        -------
+        array
+            Residuals of normative model.
         """
         # get proband and control masks
         ctr_mask, prob_mask = self.get_masks()
@@ -356,8 +382,8 @@ class PyNM:
 
         self.data['GP_nmodel_pred'] = y_pred
         self.data['GP_nmodel_sigma'] = sigma
-        self.data['GP_nmodel_residuals'] = y_pred - y_true
-        return y_pred - y_true
+        self.data['GP_nmodel_residuals'] = y_true - y_pred
+        return y_true - y_pred
 
     def _plot(self, plot_type=None):
         """Plot the data with the normative model overlaid.
