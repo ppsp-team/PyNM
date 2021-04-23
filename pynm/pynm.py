@@ -526,14 +526,14 @@ class PyNM:
         else:
             svgp = SVGP(conf_mat,score,ctr_mask,n_inducing=n_inducing,batch_size=batch_size)
             svgp.train(num_epochs=num_epochs)
-            means, sigmas = svgp.predict()
+            means, sigma = svgp.predict()
 
             y_pred = means.numpy()
             y_true = score
             residuals = (y_true - y_pred).astype(float)
 
             self.data['GP_nmodel_pred'] = y_pred
-            self.data['GP_nmodel_sigma'] = sigmas.numpy()
+            self.data['GP_nmodel_sigma'] = sigma.numpy()
             self.data['GP_nmodel_residuals'] = residuals
             return svgp.loss
 

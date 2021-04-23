@@ -126,13 +126,13 @@ class SVGP:
         self.model.eval()
         self.likelihood.eval()
 
-        means = torch.tensor([0.])
-        sigmas = torch.tensor([0.])
+        mean = torch.tensor([0.])
+        sigma = torch.tensor([0.])
         with torch.no_grad():
             for x_batch, y_batch in self.test_loader:
                 preds = self.model(x_batch)
-                means = torch.cat([means, preds.mean.cpu()])
-                sigmas = torch.cat([sigmas, torch.sqrt(preds.variance.cpu())])
-        means = means[1:]
-        sigmas = sigmas[1:]
-        return means, sigmas
+                mean = torch.cat([mean, preds.mean.cpu()])
+                sigma = torch.cat([sigma, torch.sqrt(preds.variance.cpu())])
+        mean = mean[1:]
+        sigma = sigma[1:]
+        return mean, sigma
