@@ -51,6 +51,9 @@ def _cli_parser():
     parser.add_argument("--nu",default=2.5,dest='nu',
                         help="Nu of Matern kernel for exact and SVGP model. "
                             "See documentation for details. Default value is 2.5.")
+    parser.add_argument("--train_sample",default='controls',dest='train_sample',
+                        help="On what subset to train the model, can be 'controls', 'manual', "
+                            "or a value in (0,1]. Default value is 'controls'.")
     return parser.parse_args()
 
 def main():
@@ -59,7 +62,7 @@ def main():
     confounds = params['confounds'].split(',')            
     data = pd.read_csv(params['pheno_p'])
     
-    m = pynm.PyNM(data,params['score'],params['group'],params['conf'],confounds)
+    m = pynm.PyNM(data,params['score'],params['group'],params['conf'],confounds,params['train_sample'])
     
     #Add a column to data w/ number controls used in this bin
     m.bins_num()

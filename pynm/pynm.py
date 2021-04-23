@@ -92,14 +92,15 @@ class PyNM:
     error_med:
     """
 
-    def __init__(self, data, score='score', group='group', conf='age', confounds=['age', 'C(sex)', 'C(site)']):
+    def __init__(self, data, score='score', group='group', conf='age', confounds=['age', 'C(sex)', 'C(site)'],train_sample='controls'):
         self.data = data.copy()
         self.score = score
         self.group = group
-        self.CTR = None
-        self.PROB = None
         self.conf = conf
         self.confounds = confounds
+        self.train_sample=train_sample
+        self.CTR = None
+        self.PROB = None
         self.bins = None
         self.bin_count = None
         self.zm = None
@@ -110,16 +111,65 @@ class PyNM:
         self.error_med = None
 
         self.set_group_names()
+        self.set_group()
+
+    def make_train_sample(self,train_size):
+        ctr_idx = self.data[self.data[self.group]==self.CTR].index.tolist()
+        n_ctr = len(ctr_idx)
+        n_ctr_train = max(int(train_size*n_ctr),1) #make this minimum 2?
+
+        np.random.seed(1)
+        ctr_idx_train = np.array(np.random.choice(ctr_idx,size=n_ctr_train,replace=False))
+        
+        train_sample = np.zeros(self.data.shape[0])
+        train_sample[ctr_idx_train] = 1
+        self.data['train_sample'] = train_sample
+
+        print('Fitting model with train sample size = {}: using {}/{} of controls...'.format(train_size, n_ctr_train,n_ctr))
+
+
+    def set_group(self):
+        if self.train_sample == 'controls':
+            print('Fitting model on full set of controls...')
+            if self.data[self.data[self.group] == self.CTR].shape[0] == 0:
+                raise ValueError('Dataset has no controls for training sample.')
+        elif self.train_sample == 'manual':
+            print('Fitting model on specified training sample...')
+            if 'train_sample' not in self.data.columns:
+                raise ValueError('Data has no column "train_sample". To manually specify a training sample, data .csv '
+                                'must contain a column "train_sample" with included subjects marked with 1 and rest as 0.')
+            self.group = 'train_sample'
+            self.set_group_names()
+
+            if self.data[self.data[self.group] == self.CTR].shape[0] == 0:
+                raise ValueError('Dataset has no subjects in specified training sample..')
+        else:
+            try:
+                train_size = float(self.train_sample)
+            except:
+                raise ValueError("Value for train_sample not recognized. Must be either 'controls', 'manual', or a "
+                                "value in (0,1].")
+            else:
+                if (train_size > 1) or (train_size <=0):
+                    raise ValueError("Numerical value for train_sample must be in the range (0,1].")
+                else:
+                    self.make_train_sample(train_size)
+                    self.group = 'train_sample'
+                    self.set_group_names()
 
     def set_group_names(self):
         """ Read whether subjects in data are labeled CTR/PROB or 0/1 and set labels accordingly."""
-        labels = list(self.data[self.group].unique())
-        if ('CTR' in labels) or ('PROB' in labels):
-            self.CTR = 'CTR'
-            self.PROB = 'PROB'
+        if self.group == 'train_sample':
+            self.CTR = 1
+            self.PROB = 0
         else:
-            self.CTR = 0
-            self.PROB = 1
+            labels = list(self.data[self.group].unique())
+            if ('CTR' in labels) or ('PROB' in labels):
+                self.CTR = 'CTR'
+                self.PROB = 'PROB'
+            else:
+                self.CTR = 0
+                self.PROB = 1
 
     def get_masks(self):
         """ Get masks from data corresponding to controls and probands.

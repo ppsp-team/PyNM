@@ -85,6 +85,36 @@ class TestBasic:
         assert m.CTR == 0
         assert m.PROB == 1
 
+    def test_set_group_controls(self):
+        data = generate_data(randseed=3, group='01')
+        m = pynm.PyNM(data,train_sample='controls')
+        assert m.group == 'group'
+    
+    def test_set_group_33(self):
+        data = generate_data(randseed=3, group='01')
+        m = pynm.PyNM(data,train_sample='0.33')
+        assert m.group == 'train_sample'
+        assert m.data['train_sample'].sum() == 1
+        assert m.data[(m.data['train_sample']==1) & (m.data['group']== 1)].shape[0] == 0
+    
+    def test_set_group_manual_no_col(self):
+        data = generate_data(randseed=3, group='01')
+        with pytest.raises(ValueError):
+            m = pynm.PyNM(data,train_sample='manual')
+    
+    def test_set_group_manual_zero_col(self):
+        data = generate_data(randseed=3, group='01')
+        data['train_sample'] = 0
+        with pytest.raises(ValueError):
+            m = pynm.PyNM(data,train_sample='manual')
+    
+    def test_set_group_manual_good_col(self):
+        data = generate_data(randseed=3, group='01')
+        data['train_sample'] = [1,1,0,0,0,0]
+        m = pynm.PyNM(data,train_sample='manual')
+        assert m.PROB == 0
+        assert m.group == 'train_sample'
+
     def test_create_bins(self):
         data = generate_data(randseed=3)
         m = pynm.PyNM(data)
