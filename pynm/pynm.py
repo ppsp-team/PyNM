@@ -88,8 +88,10 @@ class PyNM:
     zstd:
     zci:
     z:
-    error_mea:
-    error_med:
+    SMSE_LOESS: Mean Square Error of LOESS normative model
+    SMSE_Centiles: Median Square Error of Centiles normative model
+    SMSE_GP: Mean Square Error of Gaussian Process normative model
+    MSLL: Mean Standardized Log Loss of Gaussian Process normative model
     """
 
     def __init__(self, data, score='score', group='group', conf='age', confounds=['age', 'C(sex)', 'C(site)'],train_sample='controls'):
@@ -107,8 +109,10 @@ class PyNM:
         self.zstd = None
         self.zci = None
         self.z = None
-        self.error_mea = None
-        self.error_med = None
+        self.SMSE_LOESS = None
+        self.SMSE_Centiles = None
+        self.SMSE_GP = None
+        self.MSLL = None
 
         self.set_group_names()
         self.set_group()
@@ -295,14 +299,15 @@ class PyNM:
                 self.zstd[i] = np.nan
 
         # mean squared error
-        self.error_mea = 0
+        MSE = 0
 
         # for age and score (cols of sel)
         for i in range(ctr.shape[1]):
             idage = np.argmin(np.abs(ctr[i, 1] - self.bins))
-            self.error_mea += (ctr[i, 0] - self.zm[idage])**2
-        self.error_mea /= ctr.shape[1]
-        self.error_mea = self.error_mea**0.5
+            MSE += (ctr[i, 0] - self.zm[idage])**2
+        MSE /= ctr.shape[1]
+        MSE = MSE**0.5
+        self.SMSE_LOESS = MSE / np.std(ctr[:, 1])
 
         dists = [np.abs(conf - self.bins) for conf in self.data[self.conf]]
         idx = [np.argmin(d) for d in dists]
@@ -358,14 +363,14 @@ class PyNM:
             else:
                 self.z[i] = np.nan
 
-        # mean squared error
-        self.error_med = 0
+        # median squared error
+        MSE = 0
         # for age and score (cols of sel)
         for i in range(ctr.shape[1]):
             idage = np.argmin(np.abs(ctr[i, 1] - self.bins))
-            self.error_med += (ctr[i, 0] - self.z[idage, 50])**2
-        self.error_med /= ctr.shape[1]
-        self.error_med = self.error_med**0.5
+            MSE += (ctr[i, 0] - self.z[idage, 50])**2
+        MSE /= ctr.shape[1]
+        self.SMSE_Centiles = MSE**0.5 / np.std(ctr[:, 1])
 
         dists = [np.abs(conf - self.bins) for conf in self.data[self.conf]]
         idx = [np.argmin(d) for d in dists]
@@ -469,6 +474,15 @@ class PyNM:
             #Predict normative values
             y_pred, sigma = gp.predict(conf_mat, return_std=True)
             y_true = self.data[self.score].to_numpy().reshape(-1,1)
+
+            self.SMSE_GP = (np.mean(y_true - y_pred)**2)**0.5 / np.std(score[ctr_mask])
+
+            SLL = ( 0.5 * np.log(2 * np.pi * sigma**2) +
+                     (y_true - y_pred)**2 / (2 * sigma**2) -
+                     (y_true - np.mean(score[ctr_mask]))**2 /
+                     (2 * np.std(score[ctr_mask])) )
+
+            self.MSLL = np.mean(SLL)
 
             self.data['GP_nmodel_pred'] = y_pred
             self.data['GP_nmodel_sigma'] = sigma
