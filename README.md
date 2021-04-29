@@ -8,7 +8,21 @@ For a more advanced implementation, see the Python librairie [PCNtoolkit](https:
 
 ## Installation
 
-```pip install pynm```
+To install pynm:
+
+```
+$ pip install pynm
+```
+
+Alternatively, for development purposes, clone this repository and run:
+
+```
+$ git clone https://github.com/ppsp-team/PyNM
+$ cd PyNM
+$ python setup.py develop
+```
+
+All code for PyNM is written in Python (Python>=3.5). See [requirements.txt](https://github.com/ppsp-team/PyNM/blob/master/requirements.txt) for a full list of dependencies.
 
 ## Usage
 ```
@@ -68,17 +82,18 @@ optional arguments:
 
 ## Documentation
 
+All the functions have the classical Python DocStrings that you can summon with ```help()```. You can also see the [tutorials](https://github.com/ppsp-team/PyNM/tree/master/tutorials) for documented examples.
 ## References
 
 Original papers with Gaussian Processes (GP):
-- [Marquand et al. Biological Psychiatry 2016](https://www.sciencedirect.com/science/article/pii/S0006322316000020)
-- [Marquand et al. Molecular Psychiatry 2019](https://www.nature.com/articles/s41380-019-0441-1)
+- Marquand et al. Biological Psychiatry 2016 ([doi:10.1016/j.biopsych.2015.12.023](https://doi.org/10.1016/j.biopsych.2015.12.023))
+- Marquand et al. Molecular Psychiatry 2019 ([doi:10.1038/s41380-019-0441-1](https://doi.org/10.1038/s41380-019-0441-1))
 
 Example of use of the LOESS approach:
-- [Lefebvre et al. Front. Neurosci. 2018](https://www.frontiersin.org/articles/10.3389/fnins.2018.00662/full)
-- [Maruani et al. Front. Psychiatry 2019](https://www.frontiersin.org/articles/10.3389/fpsyt.2019.00011/full)
+- Lefebvre et al. Front. Neurosci. 2018 ([doi:10.3389/fnins.2018.00662](https://doi.org/10.3389/fnins.2018.00662))
+- Maruani et al. Front. Psychiatry 2019 ([doi:10.3389/fpsyt.2019.00011](https://doi.org/10.3389/fpsyt.2019.00011))
 
-For the Centiles approach, see [Bethlehem et al. Communications Biology 2020](https://www.nature.com/articles/s42003-020-01212-9) with the R implementation [here](https://github.com/rb643/Normative_modeling).
+For the Centiles approach, see Bethlehem et al. Communications Biology 2020 ([doi:10.1038/s42003-020-01212-9](https://doi.org/10.1038/s42003-020-01212-9)) with the R implementation [here](https://github.com/rb643/Normative_modeling).
 
 ## How to report errors
 
