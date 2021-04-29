@@ -77,5 +77,8 @@ optional arguments:
   --length_scale LENGTH_SCALE       Length scale of Matern kernel for exact model. 
                                     See documentation for details. Default value is 1.
                                     
-  --nu NU                           Nu of Matern kernel for exact and SVGP model. 
+  --nu NU                           Nu of Matern kernel for exact and SVGP model.
+  
+  --train_sample TRAIN_SAMPLE       On what subset to train the model, can be 'controls',
+                                    'manual', or a value in (0,1]. Default value is 'controls'.
 ```
