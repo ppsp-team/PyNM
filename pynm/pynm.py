@@ -49,7 +49,6 @@ def _read_confounds(confounds):
     list
         List of only categorical confounds without wrapper.
     """
-    # Find categorical values in confounds and clean format
     categorical = []
     clean_confounds = []
     for conf in confounds:
@@ -82,19 +81,52 @@ class PyNM:
     confounds: list of str
         List of labels of columns from data with confounds to use for 
         GP model with categorical values denoted by C(var).
-    bins:    
-    bin_count:
-    zm:
-    zstd:
-    zci:
-    z:
-    SMSE_LOESS: Mean Square Error of LOESS normative model
-    SMSE_Centiles: Median Square Error of Centiles normative model
-    SMSE_GP: Mean Square Error of Gaussian Process normative model
-    MSLL: Mean Standardized Log Loss of Gaussian Process normative model
+    train_sample: str or float
+        Which method to use for a training sample, can be 'controls' to use all the controls, 
+        'manual' to be manually set, or a float in (0,1] for a percentage of controls.
+    bins: array
+        Bins for the centiles and LOESS models.
+    bin_count: array
+        Number of controls in each bin.
+    zm: array
+        Mean of each bin.
+    zstd: array
+        Standard deviation of each bin.
+    zci: array
+        Confidence interval of each bin.
+    z: array
+        Centiles for each bin.
+    SMSE_LOESS: float
+        Mean Square Error of LOESS normative model
+    SMSE_Centiles: float
+        Median Square Error of Centiles normative model
+    SMSE_GP: float
+        Mean Square Error of Gaussian Process normative model
+    MSLL: float
+        Mean Standardized Log Loss of Gaussian Process normative model
     """
 
     def __init__(self, data, score='score', group='group', conf='age', confounds=['age', 'C(sex)', 'C(site)'],train_sample='controls'):
+        """ Create a PyNM object.
+
+        Parameters
+        ----------
+        data : dataframe
+            Dataset to fit model, must at least contain columns corresponding to 'group',
+            'score', and 'conf'.
+        score : str, default='score'
+            Label of column from data with score (response variable).
+        group : str, default='group'
+            Label of column from data that encodes wether subjects are probands or controls.
+        conf: str, default='age'
+            Label of column from data with confound to use for LOESS and centiles models.
+        confounds: list of str, default=['age', 'C(sex)', 'C(site)']
+            List of labels of columns from data with confounds to use for 
+            GP model with categorical values denoted by C(var).
+        train_sample: str or float, default='controls'
+            Which method to use for a training sample, can be 'controls' to use all the controls, 
+            'manual' to be manually set, or a float in (0,1] for a percentage of controls.
+        """
         self.data = data.copy()
         self.score = score
         self.group = group
@@ -118,6 +150,13 @@ class PyNM:
         self._set_group()
 
     def _make_train_sample(self,train_size):
+        """ Select a subsample of controls to be used as a training sample for the normative model.
+
+        Parameters
+        ----------
+        train_size: float
+            Percentage of controls to use for training. Must be in (0,1].
+        """
         ctr_idx = self.data[self.data[self.group]==self.CTR].index.tolist()
         n_ctr = len(ctr_idx)
         n_ctr_train = max(int(train_size*n_ctr),1) #make this minimum 2?
@@ -133,6 +172,22 @@ class PyNM:
 
 
     def _set_group(self):
+        """ Read the specified training sample and set the group attribute to refer to the appropriate column of data.
+
+        Raises
+        ------
+        ValueError
+            With train_sample='contols': Dataset has no controls for training sample.
+        ValueError
+            With train_sample='manual': Data has no column "train_sample". To manually specify a training sample, 
+            data .csv must contain a column "train_sample" with included subjects marked with 1 and rest as 0.
+        ValueError
+            With train_sample='manual': Dataset has no subjects in specified training sample.
+        ValueError
+            Value for train_sample not recognized. Must be either 'controls', 'manual', or a value in (0,1].
+        ValueError
+            With train_sample float: Numerical value for train_sample must be in the range (0,1].
+        """
         if self.train_sample == 'controls':
             print('Fitting model on full set of controls...')
             if self.data[self.data[self.group] == self.CTR].shape[0] == 0:
@@ -194,18 +249,27 @@ class PyNM:
         # Default values for age in days
     def create_bins(self, min_age=-1, max_age=-1, min_score=-1, max_score=-1,
                     bin_spacing=8, bin_width=1.5):
-        """[summary]
+        """ Create bins for the centiles and LOESS models.
 
-        Args:
-            min_age (int, optional): [description]. Defaults to -1.
-            max_age (int, optional): [description]. Defaults to -1.
-            min_score (int, optional): [description]. Defaults to -1.
-            max_score (int, optional): [description]. Defaults to -1.
-            bin_spacing (int, optional): [description]. Defaults to 8.
-            bin_width (float, optional): [description]. Defaults to 1.5.
+        Parameters
+        ----------
+        min_age: int, default=-1
+            Minimum age for model.
+        max_age: int, default=-1
+            Maximum age for model.
+        min_score: int, default=-1
+            Minimum score for model.
+        max_score: int, default=-1
+            Maximum score for model.
+        bin_spacing: int, default=-1
+            Distance between bins.
+        bin_width: float, default=-1
+            Width of bins.
 
-        Returns:
-            [type]: [description]
+        Returns
+        -------
+        array
+            Bins for the centiles and LOESS models.
         """
         if min_age == -1:
             min_age = self.data[self.conf].min()
@@ -228,10 +292,12 @@ class PyNM:
         return self.bins
 
     def bins_num(self):
-        """Give the number of ctr used for the age bin each participant is in.
+        """ Give the number of ctr used for the age bin each participant is in.
 
-        Returns:
-            [type]: [description]
+        Returns
+        -------
+        array
+            Number of controls in each bin.
         """
         if self.bins is None:
             self.create_bins()
@@ -242,8 +308,7 @@ class PyNM:
         return n_ctr
 
     def _loess_rank(self):
-        """Associate ranks to LOESS normative scores.
-        """
+        """ Associate ranks to LOESS normative scores."""
         self.data.loc[(self.data.LOESS_nmodel <= -2), 'LOESS_rank'] = -2
         self.data.loc[(self.data.LOESS_nmodel > -2) &
                       (self.data.LOESS_nmodel <= -1), 'LOESS_rank'] = -1
@@ -254,11 +319,7 @@ class PyNM:
         self.data.loc[(self.data.LOESS_nmodel > +2), 'LOESS_rank'] = 2
 
     def loess_normative_model(self):
-        """Compute classical normative model.
-
-        Returns:
-            [type]: [description]
-        """
+        """ Compute classical normative model."""
         if self.bins is None:
             self.create_bins()
         # format data
@@ -316,11 +377,9 @@ class PyNM:
         nmodel = (self.data[self.score] - m) / std
         self.data['LOESS_nmodel'] = nmodel
         self._loess_rank()
-        return nmodel
 
     def _centiles_rank(self):
-        """Associate ranks to centiles associated with normative modeling.
-        """
+        """ Associate ranks to centiles associated with normative modeling."""
         self.data.loc[(self.data.Centiles_nmodel <= 5), 'Centiles_rank'] = -2
         self.data.loc[(self.data.Centiles_nmodel > 5) &
                       (self.data.Centiles_nmodel <= 25), 'Centiles_rank'] = -1
@@ -331,11 +390,7 @@ class PyNM:
         self.data.loc[(self.data.Centiles_nmodel > 95), 'Centiles_rank'] = 2
 
     def centiles_normative_model(self):
-        """Compute centiles normative model.
-
-        Returns:
-            [type]: [description]
-        """
+        """ Compute centiles normative model."""
         if self.bins is None:
             self.create_bins()
 
@@ -385,7 +440,6 @@ class PyNM:
         result[else_mask] = np.array([np.argmin(self.data[self.score][i] >= centiles[i]) for i in range(self.data.shape[0])])[else_mask]
         self.data['Centiles_nmodel'] = result
         self._centiles_rank()
-        return result
 
     def _get_conf_mat(self):
         """ Get confounds properly formatted from dataframe and input list.
@@ -402,9 +456,35 @@ class PyNM:
         return conf_mat.to_numpy()
     
     def _get_score(self):
+        """ Get the score from the PyNM object as an array.
+
+        Raises
+        ------
+        ValueError
+            Method must be one of "auto","approx", or "exact".
+
+        Returns
+        -------
+        array
+            The column of data marked by the user as 'score'.
+        """
         return self.data[self.score].to_numpy()
     
     def _use_approx(self,method='auto'):
+        """ Choose wether or not to use SVGP model. If method is set to 'auto' SVGP is chosen
+        for datasets with more than 1000 points.
+
+        Parameters
+        ----------
+        method: str, default='auto'
+            Which method to use, can be 'exact' for exact GP regression, 'approx' for SVGP,
+            or 'auto' which will set the method according to the size of the data.
+        
+        Raises
+        ------
+        ValueError
+            Method must be one of "auto","approx", or "exact".
+        """"
         if method == 'auto':
             if self.data.shape[0] > 1000:
                 return True
@@ -427,24 +507,19 @@ class PyNM:
 
         Parameters
         -------
-        length_scale: float
+        length_scale: float, default=1
             Length scale parameter of Matern kernel.
-        nu: float
+        nu: float, default=2.5
             Nu parameter of Matern kernel.
-        method: str
+        method: str, default='auto'
             Which method to use, can be 'exact' for exact GP regression, 'approx' for SVGP,
-            or 'auto' which will set the method according to the size of the data. Default value is 'auto'.
-        batch_size: int
-            Batch size for SVGP model training and prediction. Default value is 256.
-        n_inducing: int
-            Number of inducing points for SVGP model. Default value is 500.
-        num_epochs: int
-            Number of epochs (passes through entire dataset) to train SVGP for. Default value is 20.
-
-        Returns
-        -------
-        array
-            Residuals of normative model.
+            or 'auto' which will set the method according to the size of the data.
+        batch_size: int, default=256
+            Batch size for SVGP model training and prediction.
+        n_inducing: int, default=500
+            Number of inducing points for SVGP model.
+        num_epochs: int, default=20
+            Number of epochs (passes through entire dataset) to train SVGP for.
         """
         # get proband and control masks
         ctr_mask, prob_mask = self._get_masks()
@@ -500,14 +575,14 @@ class PyNM:
             Score/response variable.
         ctr_mask: array
             Mask (boolean array) with controls marked True.
-        nu: float
+        nu: float, default=2.5
             Nu parameter of Matern kernel.
-        batch_size: int
-            Batch size for SVGP model training and prediction. Default value is 256.
-        n_inducing: int
-            Number of inducing points for SVGP model. Default value is 500.
-        num_epochs: int
-            Number of epochs (passes through entire dataset) to train SVGP for. Default value is 20.
+        batch_size: int, default=256
+            Batch size for SVGP model training and prediction.
+        n_inducing: int, default=500
+            Number of inducing points for SVGP model.
+        num_epochs: int, default=20
+            Number of epochs (passes through entire dataset) to train SVGP for.
         
         Raises
         -------
@@ -538,15 +613,17 @@ class PyNM:
             return svgp.loss
 
     def _plot(self, plot_type=None):
-        """Plot the data with the normative model overlaid.
+        """ Plot the data with the normative model overlaid.
 
-        Args:
-            plot_type (str, optional): type of plot among "LOESS" (local polynomial),
-            "Centiles", "GP" (gaussian processes), or "None" (data points only). 
-            Defaults to None.
+        Parameters
+        ----------
+        plot_type: str, default=None
+            Type of plot among "LOESS" (local polynomial), "Centiles", "GP" (gaussian processes), or "None" (data points only). 
 
-        Returns:
-            Axis: handle for the matplotlib axis of the plot.
+        Returns
+        ------
+        Axis
+            handle for the matplotlib axis of the plot
         """
         ax = sns.scatterplot(data=self.data, x='age', y='score',
                              hue='group', style='group')
@@ -562,10 +639,10 @@ class PyNM:
     def plot(self, plot_type=None):
         """Plot the data with the normative model overlaid.
 
-        Args:
-            plot_type (str, optional): type of plot among "LOESS"
-            (local polynomial), "Centiles", "GP" (gaussian processes),
-            or "None" (data points only). Defaults to None.
+        Parameters
+        ----------
+        plot_type: (str, default=None
+            Type of plot among "LOESS" (local polynomial), "Centiles", "GP" (gaussian processes), or "None" (data points only).
         """
         plt.figure()
         self._plot(plot_type)
