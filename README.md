@@ -6,26 +6,9 @@ Lightweight Python implementation of Normative Modelling with Gaussian Processes
 
 For a more advanced implementation, see the Python librairie [PCNtoolkit](https://github.com/amarquand/PCNtoolkit).
 
-## Roadmap
+## Installation
 
-- [x] Optimize for large input size with [GPyTorch](https://gpytorch.ai/)
-- [x] Addition of the commande line utility (c.f. [post](https://gehrcke.de/2014/02/distributing-a-python-command-line-application/))
-- [x] Coding of key unit tests
-- [ ] Creation of a clear tutorial
-- [ ] Documentation of all the functions
-- [ ] Submission to JO
-
-## References
-
-Original papers with Gaussian Processes (GP):
-- [Marquand et al. Biological Psychiatry 2016](https://www.sciencedirect.com/science/article/pii/S0006322316000020)
-- [Marquand et al. Molecular Psychiatry 2019](https://www.nature.com/articles/s41380-019-0441-1)
-
-Example of use of the LOESS approach:
-- [Lefebvre et al. Front. Neurosci. 2018](https://www.frontiersin.org/articles/10.3389/fnins.2018.00662/full)
-- [Maruani et al. Front. Psychiatry 2019](https://www.frontiersin.org/articles/10.3389/fpsyt.2019.00011/full)
-
-See also [Bethlehem et al. Communications Biology 2020](https://www.nature.com/articles/s42003-020-01212-9) with R implementation [here](https://github.com/rb643/Normative_modeling).
+```pip install pynm```
 
 ## Usage
 ```
@@ -79,3 +62,29 @@ optional arguments:
                                     
   --nu NU                           Nu of Matern kernel for exact and SVGP model. 
 ```
+
+## Documentation
+
+## References
+
+Original papers with Gaussian Processes (GP):
+- [Marquand et al. Biological Psychiatry 2016](https://www.sciencedirect.com/science/article/pii/S0006322316000020)
+- [Marquand et al. Molecular Psychiatry 2019](https://www.nature.com/articles/s41380-019-0441-1)
+
+Example of use of the LOESS approach:
+- [Lefebvre et al. Front. Neurosci. 2018](https://www.frontiersin.org/articles/10.3389/fnins.2018.00662/full)
+- [Maruani et al. Front. Psychiatry 2019](https://www.frontiersin.org/articles/10.3389/fpsyt.2019.00011/full)
+
+For the Centiles approach, see [Bethlehem et al. Communications Biology 2020](https://www.nature.com/articles/s42003-020-01212-9) with the R implementation [here](https://github.com/rb643/Normative_modeling).
+
+## How to report errors
+
+If you spot any bugs :beetle:? Check out the [open issues](https://github.com/ppsp-team/PyNM/issues) to see if we're already working on it. If not, open up a new issue and we will check it out when we can!
+
+## How to contribute
+
+Thank you for considering contributing to our project! Before getting involved, please review our [contribution guidelines](https://github.com/ppsp-team/PyNM/blob/master/CONTRIBUTING.md).
+
+## Support
+
+This work is supported by [Compute Canada](https://computecanada.ca), [IVADO](https://ivado.ca/), and [FRQS](http://www.frqs.gouv.qc.ca/en/).
