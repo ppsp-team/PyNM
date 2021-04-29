@@ -51,19 +51,19 @@ def generate_data(group='PROB_CON', sample_size=1, n_sites=2, randseed=3):
 class TestBasic:
     def test_read_confounds_some_categorical(self):
         conf = ['a', 'b', 'C(c)']
-        clean, cat = pynm.read_confounds(conf)
+        clean, cat = pynm._read_confounds(conf)
         assert clean == ['a', 'b', 'c']
         assert cat == ['c']
 
     def test_read_confounds_no_categorical(self):
         conf = ['a', 'b', 'c']
-        clean, cat = pynm.read_confounds(conf)
+        clean, cat = pynm._read_confounds(conf)
         assert clean == conf
         assert cat == []
 
     def test_read_confounds_all_categorical(self):
         conf = ['C(a)', 'C(b)', 'C(c)']
-        clean, cat = pynm.read_confounds(conf)
+        clean, cat = pynm._read_confounds(conf)
         assert clean == ['a', 'b', 'c']
         assert cat == ['a', 'b', 'c']
 
@@ -131,7 +131,7 @@ class TestBasic:
         data = generate_data(randseed=11)
         m = pynm.PyNM(data)
         m.loess_normative_model()
-        m.loess_rank()
+        #m.loess_rank()
         assert np.sum(m.data.LOESS_rank) == 1
 
     def test_loess_normative_model(self):
@@ -144,7 +144,7 @@ class TestBasic:
         data = generate_data(randseed=11)
         m = pynm.PyNM(data)
         m.centiles_normative_model()
-        m.centiles_rank()
+        #m.centiles_rank()
         assert np.sum(m.data.Centiles_rank) == -19
 
     def test_centiles_normative_model(self):
@@ -157,7 +157,7 @@ class TestBasic:
         a = np.array(list(range(6)))
         data = generate_data(randseed=3)
         m = pynm.PyNM(data)
-        ctr, prob = m.get_masks()
+        ctr, prob = m._get_masks()
         assert a[ctr].shape[0] == 5
         assert a[prob][0] == 3
 
@@ -165,14 +165,14 @@ class TestBasic:
         a = np.array(list(range(12)))
         data = generate_data(randseed=1)
         m = pynm.PyNM(data)
-        ctr, prob = m.get_masks()
+        ctr, prob = m._get_masks()
         assert a[ctr].shape[0] == 12
         assert a[prob].shape[0] == 0
 
     def test_get_conf_mat(self):
         data = generate_data(randseed=3)
         m = pynm.PyNM(data)
-        conf_mat = m.get_conf_mat()
+        conf_mat = m._get_conf_mat()
         assert conf_mat.shape[0] == 6
         assert conf_mat.shape[1] == 3
         for i in range(3):
@@ -181,23 +181,23 @@ class TestBasic:
     def test_use_approx_auto_small(self):
         data = generate_data(randseed=3)
         m = pynm.PyNM(data)
-        assert m.use_approx(method='auto') == False
+        assert m._use_approx(method='auto') == False
 
     def test_use_approx_auto_big(self):
         data = generate_data(randseed=3,sample_size=1000)
         m = pynm.PyNM(data)
-        assert m.use_approx(method='auto') == True
+        assert m._use_approx(method='auto') == True
 
     def test_use_approx_approx(self):
         data = generate_data(randseed=3,sample_size=1000)
         m = pynm.PyNM(data)
-        assert m.use_approx(method='approx') == True
+        assert m._use_approx(method='approx') == True
     
     def test_use_approx_exact(self):
         data = generate_data(randseed=3,sample_size=1000)
         m = pynm.PyNM(data)
         with pytest.warns(Warning) as record:
-            use_approx = m.use_approx(method='exact')
+            use_approx = m._use_approx(method='exact')
         assert len(record) == 1
         assert record[0].message.args[0] == "Exact GP model with over 1000 data points requires large amounts of time and memory, continuing with exact model."
         assert use_approx == False
@@ -216,9 +216,9 @@ class TestApprox:
 
         data = generate_data(randseed=3)
         m = pynm.PyNM(data)
-        conf_mat = m.get_conf_mat()
-        ctr,prob = m.get_masks()
-        score = m.get_score()
+        conf_mat = m._get_conf_mat()
+        ctr,prob = m._get_masks()
+        score = m._get_score()
         svgp = SVGP(conf_mat,score,ctr)
         assert svgp.n_train == 5 
         assert svgp.n_test == 6
@@ -228,9 +228,9 @@ class TestApprox:
 
         data = generate_data(randseed=3)
         m = pynm.PyNM(data)
-        conf_mat = m.get_conf_mat()
-        ctr,prob = m.get_masks()
-        score = m.get_score()
+        conf_mat = m._get_conf_mat()
+        ctr,prob = m._get_masks()
+        score = m._get_score()
         svgp = SVGP(conf_mat,score,ctr)
         svgp.train(num_epochs = 2)
 
@@ -241,9 +241,9 @@ class TestApprox:
 
         data = generate_data(randseed=3)
         m = pynm.PyNM(data)
-        conf_mat = m.get_conf_mat()
-        ctr,prob = m.get_masks()
-        score = m.get_score()
+        conf_mat = m._get_conf_mat()
+        ctr,prob = m._get_masks()
+        score = m._get_score()
         svgp = SVGP(conf_mat,score,ctr)
         svgp.train(num_epochs = 2)
         means,sigmas = svgp.predict()
