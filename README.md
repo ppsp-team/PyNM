@@ -8,7 +8,21 @@ For a more advanced implementation, see the Python librairie [PCNtoolkit](https:
 
 ## Installation
 
-```pip install pynm```
+To install pynm:
+
+```$ pip install pynm```
+
+Alternatively, for development purposes, clone this repository and run:
+
+```
+$ git clone https://github.com/ppsp-team/PyNM
+$ cd PyNM
+$ python setup.py develop
+```
+
+All code for PyNM is written in Python (Python>=3.5).
+
+See [requirements.txt](https://github.com/ppsp-team/PyNM/blob/master/requirements.txt) for a full list of dependencies.
 
 ## Usage
 ```
@@ -68,6 +82,9 @@ optional arguments:
 
 ## Documentation
 
+All the functions have the classical Python DocStrings that you can summon with ```help()```.
+
+See the [tutorials](https://github.com/ppsp-team/PyNM/tree/master/tutorials) for a documented example.
 ## References
 
 Original papers with Gaussian Processes (GP):
