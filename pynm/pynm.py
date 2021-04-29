@@ -34,7 +34,7 @@ from sklearn import gaussian_process
 from sklearn.gaussian_process.kernels import Matern, WhiteKernel, ConstantKernel
 
 
-def read_confounds(confounds):
+def _read_confounds(confounds):
     """ Process input list of confounds.
 
     Parameters
@@ -114,10 +114,10 @@ class PyNM:
         self.SMSE_GP = None
         self.MSLL = None
 
-        self.set_group_names()
-        self.set_group()
+        self._set_group_names()
+        self._set_group()
 
-    def make_train_sample(self,train_size):
+    def _make_train_sample(self,train_size):
         ctr_idx = self.data[self.data[self.group]==self.CTR].index.tolist()
         n_ctr = len(ctr_idx)
         n_ctr_train = max(int(train_size*n_ctr),1) #make this minimum 2?
@@ -132,7 +132,7 @@ class PyNM:
         print('Fitting model with train sample size = {}: using {}/{} of controls...'.format(train_size, n_ctr_train,n_ctr))
 
 
-    def set_group(self):
+    def _set_group(self):
         if self.train_sample == 'controls':
             print('Fitting model on full set of controls...')
             if self.data[self.data[self.group] == self.CTR].shape[0] == 0:
@@ -143,7 +143,7 @@ class PyNM:
                 raise ValueError('Data has no column "train_sample". To manually specify a training sample, data .csv '
                                 'must contain a column "train_sample" with included subjects marked with 1 and rest as 0.')
             self.group = 'train_sample'
-            self.set_group_names()
+            self._set_group_names()
 
             if self.data[self.data[self.group] == self.CTR].shape[0] == 0:
                 raise ValueError('Dataset has no subjects in specified training sample..')
@@ -157,11 +157,11 @@ class PyNM:
                 if (train_size > 1) or (train_size <=0):
                     raise ValueError("Numerical value for train_sample must be in the range (0,1].")
                 else:
-                    self.make_train_sample(train_size)
+                    self._make_train_sample(train_size)
                     self.group = 'train_sample'
-                    self.set_group_names()
+                    self._set_group_names()
 
-    def set_group_names(self):
+    def _set_group_names(self):
         """ Read whether subjects in data are labeled CTR/PROB or 0/1 and set labels accordingly."""
         if self.group == 'train_sample':
             self.CTR = 1
@@ -175,7 +175,7 @@ class PyNM:
                 self.CTR = 0
                 self.PROB = 1
 
-    def get_masks(self):
+    def _get_masks(self):
         """ Get masks from data corresponding to controls and probands.
 
         Returns
@@ -241,7 +241,7 @@ class PyNM:
         self.data['participants'] = n_ctr
         return n_ctr
 
-    def loess_rank(self):
+    def _loess_rank(self):
         """Associate ranks to LOESS normative scores.
         """
         self.data.loc[(self.data.LOESS_nmodel <= -2), 'LOESS_rank'] = -2
@@ -265,7 +265,7 @@ class PyNM:
         data = self.data[[self.conf, self.score]].to_numpy(dtype=np.float64)
 
         # take the controls
-        ctr_mask, _ = self.get_masks()
+        ctr_mask, _ = self._get_masks()
         ctr = data[ctr_mask]
 
         self.zm = np.zeros(self.bins.shape[0])  # mean
@@ -315,10 +315,10 @@ class PyNM:
         std = np.array([self.zstd[i] for i in idx])
         nmodel = (self.data[self.score] - m) / std
         self.data['LOESS_nmodel'] = nmodel
-        self.loess_rank()
+        self._loess_rank()
         return nmodel
 
-    def centiles_rank(self):
+    def _centiles_rank(self):
         """Associate ranks to centiles associated with normative modeling.
         """
         self.data.loc[(self.data.Centiles_nmodel <= 5), 'Centiles_rank'] = -2
@@ -343,7 +343,7 @@ class PyNM:
         data = self.data[[self.conf, self.score]].to_numpy(dtype=np.float64)
 
         # take the controls
-        ctr_mask, _ = self.get_masks()
+        ctr_mask, _ = self._get_masks()
         ctr = data[ctr_mask]
 
         self.z = np.zeros([self.bins.shape[0], 101])  # centiles
@@ -384,10 +384,10 @@ class PyNM:
         result[min_mask] = 0
         result[else_mask] = np.array([np.argmin(self.data[self.score][i] >= centiles[i]) for i in range(self.data.shape[0])])[else_mask]
         self.data['Centiles_nmodel'] = result
-        self.centiles_rank()
+        self._centiles_rank()
         return result
 
-    def get_conf_mat(self):
+    def _get_conf_mat(self):
         """ Get confounds properly formatted from dataframe and input list.
 
         Returns
@@ -396,15 +396,15 @@ class PyNM:
             Confounds with categorical values dummy encoded. Dummy encoding keeps k-1
             dummies out of k categorical levels.
         """
-        conf_clean, conf_cat = read_confounds(self.confounds)
+        conf_clean, conf_cat = _read_confounds(self.confounds)
         conf_mat = pd.get_dummies(self.data[conf_clean], columns=conf_cat, 
                                   drop_first=True)
         return conf_mat.to_numpy()
     
-    def get_score(self):
+    def _get_score(self):
         return self.data[self.score].to_numpy()
     
-    def use_approx(self,method='auto'):
+    def _use_approx(self,method='auto'):
         if method == 'auto':
             if self.data.shape[0] > 1000:
                 return True
@@ -447,19 +447,19 @@ class PyNM:
             Residuals of normative model.
         """
         # get proband and control masks
-        ctr_mask, prob_mask = self.get_masks()
+        ctr_mask, prob_mask = self._get_masks()
 
         # get matrix of confounds
-        conf_mat = self.get_conf_mat()
+        conf_mat = self._get_conf_mat()
 
         # Define independent and response variables
         y = self.data[self.score][ctr_mask].to_numpy().reshape(-1, 1)
         X = conf_mat[ctr_mask]
         
-        score = self.get_score()
+        score = self._get_score()
         
-        if self.use_approx(method=method):
-            self.loss = self.svgp_normative_model(conf_mat,score,ctr_mask,nu=nu,batch_size=batch_size,n_inducing=n_inducing,num_epochs=num_epochs)
+        if self._use_approx(method=method):
+            self.loss = self._svgp_normative_model(conf_mat,score,ctr_mask,nu=nu,batch_size=batch_size,n_inducing=n_inducing,num_epochs=num_epochs)
         
         else:
             #Define independent and response variables
@@ -488,7 +488,7 @@ class PyNM:
             self.data['GP_nmodel_sigma'] = sigma
             self.data['GP_nmodel_residuals'] = y_true - y_pred
 
-    def svgp_normative_model(self,conf_mat,score,ctr_mask,nu=2.5,batch_size=256,n_inducing=500,num_epochs=20):
+    def _svgp_normative_model(self,conf_mat,score,ctr_mask,nu=2.5,batch_size=256,n_inducing=500,num_epochs=20):
         """ Compute SVGP model. See GPyTorch documentation for further details:
         https://docs.gpytorch.ai/en/v1.1.1/examples/04_Variational_and_Approximate_GPs/SVGP_Regression_CUDA.html#Creating-a-SVGP-Model.
 
