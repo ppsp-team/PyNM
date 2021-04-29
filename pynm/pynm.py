@@ -484,7 +484,7 @@ class PyNM:
         ------
         ValueError
             Method must be one of "auto","approx", or "exact".
-        """"
+        """
         if method == 'auto':
             if self.data.shape[0] > 1000:
                 return True
