@@ -83,6 +83,21 @@ optional arguments:
 ## Documentation
 
 All the functions have the classical Python DocStrings that you can summon with ```help()```. You can also see the [tutorials](https://github.com/ppsp-team/PyNM/tree/master/tutorials) for documented examples.
+
+### Training sample
+By default, the models are fit on all the controls in the dataset and prediction is then done on the entire dataset. The residuals (scores of the normative model) are then calculated as the difference between the actual value and predicted value for each subject. This paradigm is not meant for situations in which the residuals will then be used in a prediction setting, since any train/test split stratified by proband/control will have information from the training set leaked into the test data.
+
+In order to avoid contaminating the test set, in a prediction setting it is important to fit the normative model on a subset of the controls and then leave those out. This is implemented in PyNM with the `--train_sample` flag. It can be used in three ways:
+ 1. Number in (0,1]
+    - This is simplest usage that defines the sample size, PyNM will then select a random sample of the controls and use those as a training group. 
+    - The subjects used in the sample are recorded in the column `'train_sample'` of the resulting PyNM.data object. Subjects used in the training sample are encoded as 1s, and the rest as 0s. 
+ 3. `'manual'`
+    - It is also possible to specify exactly which subjects to use as a training group by providing a column in the input data labeled `'train_sample'` encoded the same way.
+ 5. `'controls'`
+    - This is the default setting that will fit the model on all the controls.
+
+### Gaussian Process Model
+
 ## References
 
 Original papers with Gaussian Processes (GP):
