@@ -24,7 +24,7 @@ $ python setup.py develop
 
 All code for PyNM is written in Python (Python>=3.5). See [requirements.txt](https://github.com/ppsp-team/PyNM/blob/master/requirements.txt) for a full list of dependencies.
 
-## Usage
+## Command Line Usage
 ```
 usage: pynm [-h] --pheno_p PHENO_P --out_p OUT_P [--confounds CONFOUNDS]
             [--conf CONF] [--score SCORE] [--group GROUP] [--method METHOD]
@@ -79,7 +79,23 @@ optional arguments:
   --train_sample TRAIN_SAMPLE       On what subset to train the model, can be 'controls',
                                     'manual', or a value in (0,1]. Default value is 'controls'.
 ```
+## API Example
+```
+from pynm.pynm import PyNM
 
+#Initialize pynm w/ data and confounds
+m = PyNM(df,'score','group',
+        conf = 'age',                           #age confound for LOESS and Centiles model
+        confounds = ['age','C(sex)','C(site)']) #multivarite confounds for GP model
+
+#Run models
+loess = m.loess_normative_model()
+centiles = m.centiles_normative_model()
+gp = m.gp_normative_model()
+
+#Collect output
+data = m.data
+```
 ## Documentation
 
 All the functions have the classical Python DocStrings that you can summon with ```help()```. You can also see the [tutorials](https://github.com/ppsp-team/PyNM/tree/master/tutorials) for documented examples.
