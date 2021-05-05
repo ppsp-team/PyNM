@@ -120,7 +120,12 @@ Example of use of the LOESS approach:
 - Lefebvre et al. Front. Neurosci. 2018 ([doi:10.3389/fnins.2018.00662](https://doi.org/10.3389/fnins.2018.00662))
 - Maruani et al. Front. Psychiatry 2019 ([doi:10.3389/fpsyt.2019.00011](https://doi.org/10.3389/fpsyt.2019.00011))
 
-For the Centiles approach, see Bethlehem et al. Communications Biology 2020 ([doi:10.1038/s42003-020-01212-9](https://doi.org/10.1038/s42003-020-01212-9)) with the R implementation [here](https://github.com/rb643/Normative_modeling).
+For the Centiles approach see:
+- Bethlehem et al. Communications Biology 2020 ([doi:10.1038/s42003-020-01212-9](https://doi.org/10.1038/s42003-020-01212-9))
+- R implementation [here](https://github.com/rb643/Normative_modeling).
+
+For the SVGP model see:
+- Hensman et al. [https://arxiv.org/pdf/1411.2005.pdf](https://arxiv.org/pdf/1411.2005.pdf)
 
 ## How to report errors
 
