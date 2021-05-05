@@ -247,7 +247,7 @@ class PyNM:
         return ctr_mask, prob_mask
 
         # Default values for age in days
-    def create_bins(self, min_age=-1, max_age=-1, min_score=-1, max_score=-1,
+    def _create_bins(self, min_age=-1, max_age=-1, min_score=-1, max_score=-1,
                     bin_spacing=8, bin_width=1.5):
         """ Create bins for the centiles and LOESS models.
 
@@ -301,6 +301,7 @@ class PyNM:
         """
         if self.bins is None:
             self.create_bins()
+
         dists = [np.abs(conf - self.bins) for conf in self.data[self.conf]]
         idx = [np.argmin(d) for d in dists]
         n_ctr = [self.bin_count[i] for i in idx]
@@ -321,7 +322,8 @@ class PyNM:
     def loess_normative_model(self):
         """ Compute classical normative model."""
         if self.bins is None:
-            self.create_bins()
+            self._create_bins()
+        
         # format data
         data = self.data[[self.conf, self.score]].to_numpy(dtype=np.float64)
 
@@ -392,7 +394,7 @@ class PyNM:
     def centiles_normative_model(self):
         """ Compute centiles normative model."""
         if self.bins is None:
-            self.create_bins()
+            self._create_bins()
 
         # format data
         data = self.data[[self.conf, self.score]].to_numpy(dtype=np.float64)

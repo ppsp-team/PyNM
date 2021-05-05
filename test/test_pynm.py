@@ -118,13 +118,13 @@ class TestBasic:
     def test_create_bins(self):
         data = generate_data(randseed=3)
         m = pynm.PyNM(data)
-        m.create_bins()
-        assert True
+        m.centiles_normative_model()
+        assert m.bins is not None
 
     def test_bins_num(self):
         data = generate_data(randseed=11)
         m = pynm.PyNM(data)
-        m.create_bins(bin_spacing=5, bin_width=10)
+        m._create_bins(bin_spacing=5, bin_width=10)
         assert len(m.bins) == 6
 
     def test_loess_rank(self):
