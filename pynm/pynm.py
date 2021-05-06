@@ -106,7 +106,7 @@ class PyNM:
         Mean Standardized Log Loss of Gaussian Process normative model
     """
 
-    def __init__(self, data, score='score', group='group', conf='age', confounds=['age', 'C(sex)', 'C(site)'],train_sample='controls'):
+    def __init__(self, data, score='score', group='group', conf='age', confounds=['age', 'C(sex)', 'C(site)'], train_sample='controls'):
         """ Create a PyNM object.
 
         Parameters
@@ -132,7 +132,7 @@ class PyNM:
         self.group = group
         self.conf = conf
         self.confounds = confounds
-        self.train_sample=train_sample
+        self.train_sample = train_sample
         self.CTR = None
         self.PROB = None
         self.bins = None
@@ -149,7 +149,7 @@ class PyNM:
         self._set_group_names()
         self._set_group()
 
-    def _make_train_sample(self,train_size):
+    def _make_train_sample(self, train_size):
         """ Select a subsample of controls to be used as a training sample for the normative model.
 
         Parameters
@@ -157,19 +157,18 @@ class PyNM:
         train_size: float
             Percentage of controls to use for training. Must be in (0,1].
         """
-        ctr_idx = self.data[self.data[self.group]==self.CTR].index.tolist()
+        ctr_idx = self.data[self.data[self.group] == self.CTR].index.tolist()
         n_ctr = len(ctr_idx)
-        n_ctr_train = max(int(train_size*n_ctr),1) #make this minimum 2?
+        n_ctr_train = max(int(train_size*n_ctr), 1)  # make this minimum 2?
 
         np.random.seed(1)
-        ctr_idx_train = np.array(np.random.choice(ctr_idx,size=n_ctr_train,replace=False))
+        ctr_idx_train = np.array(np.random.choice(ctr_idx, size=n_ctr_train, replace=False))
         
         train_sample = np.zeros(self.data.shape[0])
         train_sample[ctr_idx_train] = 1
         self.data['train_sample'] = train_sample
 
-        print('Fitting model with train sample size = {}: using {}/{} of controls...'.format(train_size, n_ctr_train,n_ctr))
-
+        print('Fitting model with train sample size = {}: using {}/{} of controls...'.format(train_size, n_ctr_train, n_ctr))
 
     def _set_group(self):
         """ Read the specified training sample and set the group attribute to refer to the appropriate column of data.
@@ -196,7 +195,7 @@ class PyNM:
             print('Fitting model on specified training sample...')
             if 'train_sample' not in self.data.columns:
                 raise ValueError('Data has no column "train_sample". To manually specify a training sample, data .csv '
-                                'must contain a column "train_sample" with included subjects marked with 1 and rest as 0.')
+                                 'must contain a column "train_sample" with included subjects marked with 1 and rest as 0.')
             self.group = 'train_sample'
             self._set_group_names()
 
@@ -207,9 +206,9 @@ class PyNM:
                 train_size = float(self.train_sample)
             except:
                 raise ValueError("Value for train_sample not recognized. Must be either 'controls', 'manual', or a "
-                                "value in (0,1].")
+                                 "value in (0,1].")
             else:
-                if (train_size > 1) or (train_size <=0):
+                if (train_size > 1) or (train_size <= 0):
                     raise ValueError("Numerical value for train_sample must be in the range (0,1].")
                 else:
                     self._make_train_sample(train_size)
@@ -246,9 +245,9 @@ class PyNM:
         prob_mask = self.data.index.isin(probands.index)
         return ctr_mask, prob_mask
 
-        # Default values for age in days
+    # Default values for age in days
     def _create_bins(self, min_age=-1, max_age=-1, min_score=-1, max_score=-1,
-                    bin_spacing=8, bin_width=1.5):
+                     bin_spacing=8, bin_width=1.5):
         """ Create bins for the centiles and LOESS models.
 
         Parameters
@@ -310,14 +309,14 @@ class PyNM:
 
     def _loess_rank(self):
         """ Associate ranks to LOESS normative scores."""
-        self.data.loc[(self.data.LOESS_nmodel <= -2), 'LOESS_rank'] = -2
-        self.data.loc[(self.data.LOESS_nmodel > -2) &
-                      (self.data.LOESS_nmodel <= -1), 'LOESS_rank'] = -1
-        self.data.loc[(self.data.LOESS_nmodel > -1) &
-                      (self.data.LOESS_nmodel <= +1), 'LOESS_rank'] = 0
-        self.data.loc[(self.data.LOESS_nmodel > +1) &
-                      (self.data.LOESS_nmodel <= +2), 'LOESS_rank'] = 1
-        self.data.loc[(self.data.LOESS_nmodel > +2), 'LOESS_rank'] = 2
+        self.data.loc[(self.data.LOESS_pred <= -2), 'LOESS_rank'] = -2
+        self.data.loc[(self.data.LOESS_pred > -2) &
+                      (self.data.LOESS_pred <= -1), 'LOESS_rank'] = -1
+        self.data.loc[(self.data.LOESS_pred > -1) &
+                      (self.data.LOESS_pred <= +1), 'LOESS_rank'] = 0
+        self.data.loc[(self.data.LOESS_pred > +1) &
+                      (self.data.LOESS_pred <= +2), 'LOESS_rank'] = 1
+        self.data.loc[(self.data.LOESS_pred > +2), 'LOESS_rank'] = 2
 
     def loess_normative_model(self):
         """ Compute classical normative model."""
@@ -377,19 +376,20 @@ class PyNM:
         m = np.array([self.zm[i] for i in idx])
         std = np.array([self.zstd[i] for i in idx])
         nmodel = (self.data[self.score] - m) / std
-        self.data['LOESS_nmodel'] = nmodel
+        self.data['LOESS_pred'] = nmodel
+        self.data['LOESS_residuals'] = self.data[self.score] - self.data['LOESS_pred']
         self._loess_rank()
 
     def _centiles_rank(self):
         """ Associate ranks to centiles associated with normative modeling."""
-        self.data.loc[(self.data.Centiles_nmodel <= 5), 'Centiles_rank'] = -2
-        self.data.loc[(self.data.Centiles_nmodel > 5) &
-                      (self.data.Centiles_nmodel <= 25), 'Centiles_rank'] = -1
-        self.data.loc[(self.data.Centiles_nmodel > 25) &
-                      (self.data.Centiles_nmodel <= 75), 'Centiles_rank'] = 0
-        self.data.loc[(self.data.Centiles_nmodel > 75) &
-                      (self.data.Centiles_nmodel <= 95), 'Centiles_rank'] = 1
-        self.data.loc[(self.data.Centiles_nmodel > 95), 'Centiles_rank'] = 2
+        self.data.loc[(self.data.Centiles_pred <= 5), 'Centiles_rank'] = -2
+        self.data.loc[(self.data.Centiles_pred > 5) &
+                      (self.data.Centiles_pred <= 25), 'Centiles_rank'] = -1
+        self.data.loc[(self.data.Centiles_pred > 25) &
+                      (self.data.Centiles_pred <= 75), 'Centiles_rank'] = 0
+        self.data.loc[(self.data.Centiles_pred > 75) &
+                      (self.data.Centiles_pred <= 95), 'Centiles_rank'] = 1
+        self.data.loc[(self.data.Centiles_pred > 95), 'Centiles_rank'] = 2
 
     def centiles_normative_model(self):
         """ Compute centiles normative model."""
@@ -428,7 +428,6 @@ class PyNM:
             MSE += (ctr[i, 0] - self.z[idage, 50])**2
         MSE /= ctr.shape[1]
         self.SMSE_Centiles = MSE**0.5 / np.std(ctr[:, 1])
-
         dists = [np.abs(conf - self.bins) for conf in self.data[self.conf]]
         idx = [np.argmin(d) for d in dists]
         centiles = np.array([self.z[i] for i in idx])
@@ -440,7 +439,8 @@ class PyNM:
         result[max_mask] = 100
         result[min_mask] = 0
         result[else_mask] = np.array([np.argmin(self.data[self.score][i] >= centiles[i]) for i in range(self.data.shape[0])])[else_mask]
-        self.data['Centiles_nmodel'] = result
+        self.data['Centiles_pred'] = result
+        self.data['Centiles_residuals'] = self.data[self.score] - self.data['Centiles_pred']
         self._centiles_rank()
 
     def _get_conf_mat(self):
@@ -456,7 +456,7 @@ class PyNM:
         conf_mat = pd.get_dummies(self.data[conf_clean], columns=conf_cat, 
                                   drop_first=True)
         return conf_mat.to_numpy()
-    
+
     def _get_score(self):
         """ Get the score from the PyNM object as an array.
 
@@ -471,8 +471,8 @@ class PyNM:
             The column of data marked by the user as 'score'.
         """
         return self.data[self.score].to_numpy()
-    
-    def _use_approx(self,method='auto'):
+
+    def _use_approx(self, method='auto'):
         """ Choose wether or not to use SVGP model. If method is set to 'auto' SVGP is chosen
         for datasets with more than 1000 points.
 
@@ -497,12 +497,12 @@ class PyNM:
         elif method == 'exact':
             if self.data.shape[0] > 1000:
                 warnings.warn("Exact GP model with over 1000 data points requires "
-                                "large amounts of time and memory, continuing with exact model.",Warning)
+                              "large amounts of time and memory, continuing with exact model.",Warning)
             return False
         else:
             raise ValueError('Method must be one of "auto","approx", or "exact".')
 
-    def gp_normative_model(self,length_scale=1,nu=2.5, method='auto',batch_size=256,n_inducing=500,num_epochs=20):
+    def gp_normative_model(self, length_scale=1, nu=2.5, method='auto', batch_size=256, n_inducing=500, num_epochs=20):
         """ Compute gaussian process normative model. Gaussian process regression is computed using
         the Matern Kernel with an added constant and white noise. For Matern kernel see scikit-learn documentation:
         https://scikit-learn.org/stable/modules/generated/sklearn.gaussian_process.kernels.Matern.html.
@@ -537,13 +537,13 @@ class PyNM:
         
         if self._use_approx(method=method):
             self.loss = self._svgp_normative_model(conf_mat,score,ctr_mask,nu=nu,batch_size=batch_size,n_inducing=n_inducing,num_epochs=num_epochs)
-        
+
         else:
-            #Define independent and response variables
+            # Define independent and response variables
             y = score[ctr_mask].reshape(-1,1)
             X = conf_mat[ctr_mask]
 
-            #Fit normative model on controls
+            # Fit normative model on controls
             kernel = ConstantKernel() + WhiteKernel(noise_level=1) + Matern(length_scale=length_scale, nu=nu)
             gp = gaussian_process.GaussianProcessRegressor(kernel=kernel)
             gp.fit(X, y)
@@ -561,9 +561,9 @@ class PyNM:
 
             self.MSLL = np.mean(SLL)
 
-            self.data['GP_nmodel_pred'] = y_pred
-            self.data['GP_nmodel_sigma'] = sigma
-            self.data['GP_nmodel_residuals'] = y_true - y_pred
+            self.data['GP_pred'] = y_pred
+            self.data['GP_sigma'] = sigma
+            self.data['GP_residuals'] = y_true - y_pred
 
     def _svgp_normative_model(self,conf_mat,score,ctr_mask,nu=2.5,batch_size=256,n_inducing=500,num_epochs=20):
         """ Compute SVGP model. See GPyTorch documentation for further details:
@@ -609,9 +609,18 @@ class PyNM:
             y_true = score
             residuals = (y_true - y_pred).astype(float)
 
-            self.data['GP_nmodel_pred'] = y_pred
-            self.data['GP_nmodel_sigma'] = sigma.numpy()
-            self.data['GP_nmodel_residuals'] = residuals
+            self.SMSE_GP = (np.mean(y_true - y_pred)**2)**0.5 / np.std(score[ctr_mask])
+
+            SLL = (0.5 * np.log(2 * np.pi * sigma.numpy()**2) +
+                   (y_true - y_pred)**2 / (2 * sigma.numpy()**2) -
+                    (y_true - np.mean(score[ctr_mask]))**2 /
+                    (2 * np.std(score[ctr_mask])) )
+
+            self.MSLL = np.mean(SLL)
+
+            self.data['GP_pred'] = y_pred
+            self.data['GP_sigma'] = sigma.numpy()
+            self.data['GP_residuals'] = residuals
             return svgp.loss
 
     def _plot(self, plot_type=None):
@@ -620,7 +629,8 @@ class PyNM:
         Parameters
         ----------
         plot_type: str, default=None
-            Type of plot among "LOESS" (local polynomial), "Centiles", "GP" (gaussian processes), or "None" (data points only). 
+            Type of plot among "LOESS" (local polynomial), "Centiles", "GP" (gaussian processes), 
+            "All" (all the available models) or "None" (data points only). 
 
         Returns
         ------
@@ -628,14 +638,36 @@ class PyNM:
             handle for the matplotlib axis of the plot
         """
         ax = sns.scatterplot(data=self.data, x='age', y='score',
-                             hue='group', style='group')
+                             hue=self.group, style=self.group)
+
+
+        if plot_type == 'All':
+            if 'LOESS_pred' in self.data.columns:
+                ax.plot(self.bins, self.zm, '-k')
+            if 'Centiles_pred' in self.data.columns:
+                ax.plot(self.bins, self.z[:, 50], '--k')
+            if 'GP_pred' in self.data.columns:
+                tmp = self.data.sort_values('age')
+                ax.plot(tmp['age'], tmp['GP_pred'], '.k')
         if plot_type == 'LOESS':
             ax.plot(self.bins, self.zm, '-k')
+            plt.fill_between(np.squeeze(self.bins),
+                                np.squeeze(self.zm) - 2 * np.squeeze(self.zstd),
+                                np.squeeze(self.zm) + 2 * np.squeeze(self.zstd),
+                                alpha=.2, fc='grey', ec='None', label='95% CI')
         if plot_type == 'Centiles':
-            ax.plot(self.bins, self.z[:, 50], '-k')
+            ax.plot(self.bins, self.z[:, 50], '--k')
+            plt.fill_between(np.squeeze(self.bins),
+                                np.squeeze(self.z[:, 5]),
+                                np.squeeze(self.z[:, 95]),
+                                alpha=.2, fc='grey', ec='None', label='95% CI')
         if plot_type == 'GP':
-            tmp = self.data.sort_values('age')
-            ax.plot(tmp['age'], tmp['GP_nmodel_pred'], '-k')
+            tmp=self.data.sort_values('age')
+            plt.fill_between(np.squeeze(tmp['age']),
+                                np.squeeze(tmp['GP_pred']) - 2*np.squeeze(tmp['GP_sigma']),
+                                np.squeeze(tmp['GP_pred']) + 2*np.squeeze(tmp['GP_sigma']),
+                                alpha=.2, fc='grey', ec='None', label='95% CI')
+            ax.plot(tmp['age'], tmp['GP_pred'], '.k')
         return ax
 
     def plot(self, plot_type=None):
@@ -644,8 +676,48 @@ class PyNM:
         Parameters
         ----------
         plot_type: (str, default=None
-            Type of plot among "LOESS" (local polynomial), "Centiles", "GP" (gaussian processes), or "None" (data points only).
+            Type of plot among "LOESS" (local polynomial), "Centiles", "GP" (gaussian processes),
+            "All" (all the available models) or "None" (data points only).
         """
         plt.figure()
         self._plot(plot_type)
+        plt.show()
+
+    def _plot_res(self, plot_type=None, confound='site'):
+        """ Plot the residuals of the normative model.
+
+        Parameters
+        ----------
+        plot_type: str, default=None
+            Type of plot among "LOESS" (local polynomial), "Centiles", "GP" (gaussian processes). 
+
+        Returns
+        ------
+        Axis
+            handle for the matplotlib axis of the plot
+        """
+        if plot_type == 'LOESS':
+            sns.violinplot(x=confound, y='LOESS_residuals',
+                           data=self.data, split=True, palette='Blues', hue=self.group)
+            plt.title(f"SMSE={self.SMSE_LOESS}")
+        if plot_type == 'Centiles':
+            sns.violinplot(x=confound, y='Centiles_residuals',
+                           data=self.data, split=True, palette='Blues', hue=self.group)
+            plt.title(f"SMSE={self.SMSE_Centiles}")
+        if plot_type == 'GP':
+            sns.violinplot(x=confound, y='GP_residuals',
+                           data=self.data, split=True, palette='Blues', hue=self.group)
+            plt.title(f"SMSE={self.SMSE_GP} - MSLL={self.MSLL}")
+        return
+
+    def plot_res(self, plot_type=None, confound='site'):
+        """Plot the residuals of the normative model.
+
+        Parameters
+        ----------
+        plot_type: (str, default=None
+            Type of plot among "LOESS" (local polynomial), "Centiles", "GP" (gaussian processes).
+        """
+        plt.figure()
+        self._plot_res(plot_type, confound)
         plt.show()
