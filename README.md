@@ -89,9 +89,9 @@ m = PyNM(df,'score','group',
         confounds = ['age','C(sex)','C(site)']) #multivarite confounds for GP model
 
 # Run models
-loess = m.loess_normative_model()
-centiles = m.centiles_normative_model()
-gp = m.gp_normative_model()
+m.loess_normative_model()
+m.centiles_normative_model()
+m.gp_normative_model()
 
 # Collect output
 data = m.data
