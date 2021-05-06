@@ -363,13 +363,13 @@ class PyNM:
         # mean squared error
         MSE = 0
 
-        # for age and score (cols of sel)
-        for i in range(ctr.shape[1]):
-            idage = np.argmin(np.abs(ctr[i, 1] - self.bins))
-            MSE += (ctr[i, 0] - self.zm[idage])**2
-        MSE /= ctr.shape[1]
-        MSE = MSE**0.5
-        self.SMSE_LOESS = MSE / np.std(ctr[:, 1])
+        # # for age and score (cols of sel)
+        # for i in range(ctr.shape[1]):
+        #     idage = np.argmin(np.abs(ctr[i, 1] - self.bins))
+        #     MSE += (ctr[i, 0] - self.zm[idage])**2
+        # MSE /= ctr.shape[1]
+        # MSE = MSE**0.5
+        # self.SMSE_LOESS = MSE / np.std(ctr[:, 1])
 
         dists = [np.abs(conf - self.bins) for conf in self.data[self.conf]]
         idx = [np.argmin(d) for d in dists]
@@ -378,6 +378,11 @@ class PyNM:
         nmodel = (self.data[self.score] - m) / std
         self.data['LOESS_pred'] = nmodel
         self.data['LOESS_residuals'] = self.data[self.score] - self.data['LOESS_pred']
+
+        score = self._get_score()
+        res = self.data['LOESS_residuals'].to_numpy(dtype=np.float64)
+        self.SMSE_LOESS = (np.mean(res[ctr_mask]**2)**0.5) / np.std(score[ctr_mask])
+
         self._loess_rank()
 
     def _centiles_rank(self):
@@ -415,19 +420,19 @@ class PyNM:
             # if more than 2 non NaN values do the model
             if (~np.isnan(scores)).sum() > 2:
                 # centiles
-                self.z[i, :] = mquantiles(scores, prob=np.linspace(
-                    0, 1, 101), alphap=0.4, betap=0.4)
+                self.z[i, :] = mquantiles(scores, prob=np.linspace(0, 1, 101), alphap=0.4, betap=0.4)
             else:
                 self.z[i] = np.nan
 
         # median squared error
-        MSE = 0
-        # for age and score (cols of sel)
-        for i in range(ctr.shape[1]):
-            idage = np.argmin(np.abs(ctr[i, 1] - self.bins))
-            MSE += (ctr[i, 0] - self.z[idage, 50])**2
-        MSE /= ctr.shape[1]
-        self.SMSE_Centiles = MSE**0.5 / np.std(ctr[:, 1])
+        # MSE = 0
+        # # for age and score (cols of sel)
+        # for i in range(ctr.shape[1]):
+        #     idage = np.argmin(np.abs(ctr[i, 1] - self.bins))
+        #     MSE += (ctr[i, 0] - self.z[idage, 50])**2
+        # MSE /= ctr.shape[1]
+        # self.SMSE_Centiles = MSE**0.5 / np.std(ctr[:, 1])
+
         dists = [np.abs(conf - self.bins) for conf in self.data[self.conf]]
         idx = [np.argmin(d) for d in dists]
         centiles = np.array([self.z[i] for i in idx])
@@ -439,8 +444,14 @@ class PyNM:
         result[max_mask] = 100
         result[min_mask] = 0
         result[else_mask] = np.array([np.argmin(self.data[self.score][i] >= centiles[i]) for i in range(self.data.shape[0])])[else_mask]
-        self.data['Centiles_pred'] = result
+        self.data['Centiles'] = result
+        self.data['Centiles_pred'] = np.array([centiles[i, 50] for i in range(self.data.shape[0])])
         self.data['Centiles_residuals'] = self.data[self.score] - self.data['Centiles_pred']
+
+        score = self._get_score()
+        res = self.data['Centiles_residuals'].to_numpy(dtype=np.float64)
+        self.SMSE_Centiles = (np.mean(res[ctr_mask]**2)**0.5) / np.std(score[ctr_mask])
+
         self._centiles_rank()
 
     def _get_conf_mat(self):
@@ -552,7 +563,7 @@ class PyNM:
             y_pred, sigma = gp.predict(conf_mat, return_std=True)
             y_true = self.data[self.score].to_numpy().reshape(-1,1)
 
-            self.SMSE_GP = (np.mean(y_true - y_pred)**2)**0.5 / np.std(score[ctr_mask])
+            self.SMSE_GP = (np.mean((y_true - y_pred)**2))**0.5 / np.std(score[ctr_mask])
 
             SLL = ( 0.5 * np.log(2 * np.pi * sigma**2) +
                      (y_true - y_pred)**2 / (2 * sigma**2) -
