@@ -10,13 +10,13 @@ For a more advanced implementation, see the Python librairie [PCNtoolkit](https:
 
 To install pynm:
 
-```
+```bash
 $ pip install pynm
 ```
 
 Alternatively, for development purposes, clone this repository and run:
 
-```
+```bash
 $ git clone https://github.com/ppsp-team/PyNM
 $ cd PyNM
 $ python setup.py develop
@@ -80,20 +80,20 @@ optional arguments:
                                     'manual', or a value in (0,1]. Default value is 'controls'.
 ```
 ## API Example
-```
+```python
 from pynm.pynm import PyNM
 
-#Initialize pynm w/ data and confounds
+# Initialize pynm w/ data and confounds
 m = PyNM(df,'score','group',
         conf = 'age',                           #age confound for LOESS and Centiles model
         confounds = ['age','C(sex)','C(site)']) #multivarite confounds for GP model
 
-#Run models
+# Run models
 loess = m.loess_normative_model()
 centiles = m.centiles_normative_model()
 gp = m.gp_normative_model()
 
-#Collect output
+# Collect output
 data = m.data
 ```
 ## Documentation
