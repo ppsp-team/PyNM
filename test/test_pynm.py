@@ -131,7 +131,6 @@ class TestBasic:
         data = generate_data(randseed=11)
         m = pynm.PyNM(data)
         m.loess_normative_model()
-        #m.loess_rank()
         assert np.sum(m.data.LOESS_rank) == 1
 
     def test_loess_normative_model(self):
@@ -144,14 +143,13 @@ class TestBasic:
         data = generate_data(randseed=11)
         m = pynm.PyNM(data)
         m.centiles_normative_model()
-        #m.centiles_rank()
-        assert np.sum(m.data.Centiles_rank) == -19
+        assert np.sum(m.data.Centiles_rank) == -22
 
     def test_centiles_normative_model(self):
         data = generate_data(randseed=11)
         m = pynm.PyNM(data)
         m.centiles_normative_model()
-        assert np.sum(m.data.Centiles_pred) == 446
+        assert np.sum(m.data.Centiles) == 446
 
     def test_get_masks(self):
         a = np.array(list(range(6)))
