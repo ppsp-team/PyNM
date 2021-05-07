@@ -131,27 +131,25 @@ class TestBasic:
         data = generate_data(randseed=11)
         m = pynm.PyNM(data)
         m.loess_normative_model()
-        #m.loess_rank()
         assert np.sum(m.data.LOESS_rank) == 1
 
     def test_loess_normative_model(self):
         data = generate_data(randseed=11)
         m = pynm.PyNM(data)
         m.loess_normative_model()
-        assert math.isclose(2.3482, np.sum(m.data.LOESS_nmodel), abs_tol=0.00001)
+        assert math.isclose(2.3482, np.sum(m.data.LOESS_pred), abs_tol=0.00001)
 
     def test_centiles_rank(self):
         data = generate_data(randseed=11)
         m = pynm.PyNM(data)
         m.centiles_normative_model()
-        #m.centiles_rank()
-        assert np.sum(m.data.Centiles_rank) == -19
+        assert np.sum(m.data.Centiles_rank) == -22
 
     def test_centiles_normative_model(self):
         data = generate_data(randseed=11)
         m = pynm.PyNM(data)
         m.centiles_normative_model()
-        assert np.sum(m.data.Centiles_nmodel) == 446
+        assert np.sum(m.data.Centiles) == 446
 
     def test_get_masks(self):
         a = np.array(list(range(6)))
@@ -206,8 +204,8 @@ class TestBasic:
         data = generate_data(randseed=3)
         m = pynm.PyNM(data)
         m.gp_normative_model()
-        assert 'GP_nmodel_pred' in m.data.columns
-        assert math.isclose(0,m.data['GP_nmodel_residuals'].mean(),abs_tol=0.5)
+        assert 'GP_pred' in m.data.columns
+        assert math.isclose(0,m.data['GP_residuals'].mean(),abs_tol=0.5)
     
 
 class TestApprox:
@@ -255,8 +253,8 @@ class TestApprox:
         m = pynm.PyNM(data)
         m.gp_normative_model(method='approx')
 
-        assert 'GP_nmodel_pred' in m.data.columns
-        assert math.isclose(0, m.data['GP_nmodel_residuals'].mean(), abs_tol=0.5)
+        assert 'GP_pred' in m.data.columns
+        assert math.isclose(0, m.data['GP_residuals'].mean(), abs_tol=0.5)
 
     @pytest.fixture(scope='function')
     def test_plot(self):

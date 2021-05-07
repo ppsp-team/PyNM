@@ -10,13 +10,13 @@ For a more advanced implementation, see the Python librairie [PCNtoolkit](https:
 
 To install pynm:
 
-```
+```bash
 $ pip install pynm
 ```
 
 Alternatively, for development purposes, clone this repository and run:
 
-```
+```bash
 $ git clone https://github.com/ppsp-team/PyNM
 $ cd PyNM
 $ python setup.py develop
@@ -24,7 +24,7 @@ $ python setup.py develop
 
 All code for PyNM is written in Python (Python>=3.5). See [requirements.txt](https://github.com/ppsp-team/PyNM/blob/master/requirements.txt) for a full list of dependencies.
 
-## Usage
+## Command Line Usage
 ```
 usage: pynm [-h] --pheno_p PHENO_P --out_p OUT_P [--confounds CONFOUNDS]
             [--conf CONF] [--score SCORE] [--group GROUP] [--method METHOD]
@@ -79,7 +79,23 @@ optional arguments:
   --train_sample TRAIN_SAMPLE       On what subset to train the model, can be 'controls',
                                     'manual', or a value in (0,1]. Default value is 'controls'.
 ```
+## API Example
+```python
+from pynm.pynm import PyNM
 
+# Initialize pynm w/ data and confounds
+m = PyNM(df,'score','group',
+        conf = 'age',                           #age confound for LOESS and Centiles model
+        confounds = ['age','C(sex)','C(site)']) #multivarite confounds for GP model
+
+# Run models
+m.loess_normative_model()
+m.centiles_normative_model()
+m.gp_normative_model()
+
+# Collect output
+data = m.data
+```
 ## Documentation
 
 All the functions have the classical Python DocStrings that you can summon with ```help()```. You can also see the [tutorials](https://github.com/ppsp-team/PyNM/tree/master/tutorials) for documented examples.
