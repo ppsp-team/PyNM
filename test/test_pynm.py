@@ -201,7 +201,7 @@ class TestBasic:
         assert use_approx == False
 
     def test_gp_normative_model(self):
-        data = generate_data(randseed=3)
+        data = generate_data(sample_size=4, n_sites=2, randseed=3)
         m = pynm.PyNM(data)
         m.gp_normative_model()
         assert 'GP_pred' in m.data.columns
@@ -249,7 +249,7 @@ class TestApprox:
         assert sigmas.size(0) == 6
 
     def test_svgp_model(self):
-        data = generate_data(randseed=3)
+        data = generate_data(sample_size=4, n_sites=2, randseed=3)
         m = pynm.PyNM(data)
         m.gp_normative_model(method='approx')
 
