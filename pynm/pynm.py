@@ -29,6 +29,7 @@ import seaborn as sns
 import statsmodels.api as sm
 from statsmodels.sandbox.regression.predstd import wls_prediction_std
 from scipy.stats.mstats import mquantiles
+from scipy import stats
 
 from sklearn import gaussian_process
 from sklearn.gaussian_process.kernels import Matern, WhiteKernel, ConstantKernel
@@ -360,17 +361,6 @@ class PyNM:
                 self.zci[i] = np.nan
                 self.zstd[i] = np.nan
 
-        # mean squared error
-        MSE = 0
-
-        # # for age and score (cols of sel)
-        # for i in range(ctr.shape[1]):
-        #     idage = np.argmin(np.abs(ctr[i, 1] - self.bins))
-        #     MSE += (ctr[i, 0] - self.zm[idage])**2
-        # MSE /= ctr.shape[1]
-        # MSE = MSE**0.5
-        # self.SMSE_LOESS = MSE / np.std(ctr[:, 1])
-
         dists = [np.abs(conf - self.bins) for conf in self.data[self.conf]]
         idx = [np.argmin(d) for d in dists]
         m = np.array([self.zm[i] for i in idx])
@@ -423,15 +413,6 @@ class PyNM:
                 self.z[i, :] = mquantiles(scores, prob=np.linspace(0, 1, 101), alphap=0.4, betap=0.4)
             else:
                 self.z[i] = np.nan
-
-        # median squared error
-        # MSE = 0
-        # # for age and score (cols of sel)
-        # for i in range(ctr.shape[1]):
-        #     idage = np.argmin(np.abs(ctr[i, 1] - self.bins))
-        #     MSE += (ctr[i, 0] - self.z[idage, 50])**2
-        # MSE /= ctr.shape[1]
-        # self.SMSE_Centiles = MSE**0.5 / np.std(ctr[:, 1])
 
         dists = [np.abs(conf - self.bins) for conf in self.data[self.conf]]
         idx = [np.argmin(d) for d in dists]
@@ -562,26 +543,30 @@ class PyNM:
             #Predict normative values
             y_pred, sigma = gp.predict(conf_mat, return_std=True)
             y_true = self.data[self.score].to_numpy().reshape(-1,1)
-
-            self.SMSE_GP = (np.mean((y_true - y_pred)**2))**0.5 / np.std(score[ctr_mask])
+            residuals = y_true - y_pred
+            self.SMSE_GP = (np.mean((residuals)**2))**0.5 / \
+                np.std(score[ctr_mask])
 
             SLL = ( 0.5 * np.log(2 * np.pi * sigma**2) +
-                     (y_true - y_pred)**2 / (2 * sigma**2) -
-                     (y_true - np.mean(score[ctr_mask]))**2 /
-                     (2 * np.std(score[ctr_mask])) )
+                   (residuals)**2 / (2 * sigma**2) -
+                   (y_true - np.mean(score[ctr_mask]))**2 /
+                   (2 * np.std(score[ctr_mask])) )
 
             self.MSLL = np.mean(SLL)
 
             self.data['GP_pred'] = y_pred
             self.data['GP_sigma'] = sigma
-            self.data['GP_residuals'] = y_true - y_pred
+            self.data['GP_residuals'] = 
+            k2, p = stats.normaltest(residuals)
+            if p < 0.05:
+                warnings.warn("The residuals are not Gaussian!")
 
     def _svgp_normative_model(self,conf_mat,score,ctr_mask,nu=2.5,batch_size=256,n_inducing=500,num_epochs=20):
         """ Compute SVGP model. See GPyTorch documentation for further details:
         https://docs.gpytorch.ai/en/v1.1.1/examples/04_Variational_and_Approximate_GPs/SVGP_Regression_CUDA.html#Creating-a-SVGP-Model.
 
         Parameters
-        -------
+        ----------
         conf_mat: array
             Confounds with categorical values dummy encoded.
         score: array
@@ -598,7 +583,7 @@ class PyNM:
             Number of epochs (passes through entire dataset) to train SVGP for.
         
         Raises
-        -------
+        ------
         ImportError
             GPyTorch or it's dependencies aren't installed.
 
@@ -624,14 +609,17 @@ class PyNM:
 
             SLL = (0.5 * np.log(2 * np.pi * sigma.numpy()**2) +
                    (y_true - y_pred)**2 / (2 * sigma.numpy()**2) -
-                    (y_true - np.mean(score[ctr_mask]))**2 /
-                    (2 * np.std(score[ctr_mask])) )
+                   (y_true - np.mean(score[ctr_mask]))**2 /
+                   (2 * np.std(score[ctr_mask])) )
 
             self.MSLL = np.mean(SLL)
 
             self.data['GP_pred'] = y_pred
             self.data['GP_sigma'] = sigma.numpy()
             self.data['GP_residuals'] = residuals
+            k2, p = stats.normaltest(residuals)
+            if p<0.05:
+                warnings.warn("The residual are not Gaussian!")
             return svgp.loss
 
     def _plot(self, plot_type=None):
@@ -644,7 +632,7 @@ class PyNM:
             "All" (all the available models) or "None" (data points only). 
 
         Returns
-        ------
+        -------
         Axis
             handle for the matplotlib axis of the plot
         """
@@ -663,21 +651,21 @@ class PyNM:
         if plot_type == 'LOESS':
             ax.plot(self.bins, self.zm, '-k')
             plt.fill_between(np.squeeze(self.bins),
-                                np.squeeze(self.zm) - 2 * np.squeeze(self.zstd),
-                                np.squeeze(self.zm) + 2 * np.squeeze(self.zstd),
-                                alpha=.2, fc='grey', ec='None', label='95% CI')
+                             np.squeeze(self.zm) - 2 * np.squeeze(self.zstd),
+                             np.squeeze(self.zm) + 2 * np.squeeze(self.zstd),
+                             alpha=.2, fc='grey', ec='None', label='95% CI')
         if plot_type == 'Centiles':
             ax.plot(self.bins, self.z[:, 50], '--k')
             plt.fill_between(np.squeeze(self.bins),
-                                np.squeeze(self.z[:, 5]),
-                                np.squeeze(self.z[:, 95]),
-                                alpha=.2, fc='grey', ec='None', label='95% CI')
+                             np.squeeze(self.z[:, 5]),
+                             np.squeeze(self.z[:, 95]),
+                             alpha=.2, fc='grey', ec='None', label='95% CI')
         if plot_type == 'GP':
             tmp=self.data.sort_values('age')
             plt.fill_between(np.squeeze(tmp['age']),
-                                np.squeeze(tmp['GP_pred']) - 2*np.squeeze(tmp['GP_sigma']),
-                                np.squeeze(tmp['GP_pred']) + 2*np.squeeze(tmp['GP_sigma']),
-                                alpha=.2, fc='grey', ec='None', label='95% CI')
+                             np.squeeze(tmp['GP_pred']) - 2*np.squeeze(tmp['GP_sigma']),
+                             np.squeeze(tmp['GP_pred']) + 2*np.squeeze(tmp['GP_sigma']),
+                             alpha=.2, fc='grey', ec='None', label='95% CI')
             ax.plot(tmp['age'], tmp['GP_pred'], '.k')
         return ax
 
@@ -703,7 +691,7 @@ class PyNM:
             Type of plot among "LOESS" (local polynomial), "Centiles", "GP" (gaussian processes). 
 
         Returns
-        ------
+        -------
         Axis
             handle for the matplotlib axis of the plot
         """
