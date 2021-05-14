@@ -556,7 +556,7 @@ class PyNM:
 
             self.data['GP_pred'] = y_pred
             self.data['GP_sigma'] = sigma
-            self.data['GP_residuals'] = 
+            self.data['GP_residuals'] = residuals
             k2, p = stats.normaltest(residuals)
             if p < 0.05:
                 warnings.warn("The residuals are not Gaussian!")
