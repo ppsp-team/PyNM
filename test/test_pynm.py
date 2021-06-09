@@ -1,6 +1,7 @@
 import pynm.pynm as pynm
 import numpy as np
 import pandas as pd
+import scipy.stats as sp
 import math
 import pytest
 
@@ -16,8 +17,6 @@ def model_prob(age, sex, offset):
 
 # randseed = 3, sample_size = 1, n_sites = 2 has ONE PROB n=6
 # randseed = 1, sample_size = 1, n_sites = 2 has NO PROB n=12
-
-
 def generate_data(group='PROB_CON', sample_size=1, n_sites=2, randseed=3):
     np.random.seed(randseed)
     n_sites = n_sites
@@ -47,6 +46,37 @@ def generate_data(group='PROB_CON', sample_size=1, n_sites=2, randseed=3):
         df.group.replace({1: 'PROB', 0: 'CTR'}, inplace=True)
     return df
 
+def sample_x(low=1,high=100,n_subs=1000,sampling='full'):
+    if sampling =='full':
+        x = np.random.uniform(low=low,high=high,size=n_subs)
+    else:
+        x = np.concatenate([np.random.normal(20,10,size=int(n_subs/2)),np.random.normal(80,10,size=int(n_subs/2))])
+        x = x[(x<high) & (x > low)]
+    return x
+
+# Homoskedastic, gaussian noise
+def dataset_homo(low=1,high=100,n_subs=1000,sampling='full'):
+    x = sample_x(low=low,high=high,n_subs=n_subs,sampling=sampling)
+    scores = np.array([np.log(i) + np.random.randn() for i in x])
+    df = pd.DataFrame([x,scores],index=['x','score']).transpose()
+    df['train_sample'] = 1
+    return df
+
+# Homoskedastic, skew noise
+def dataset_skew(low=1,high=100,n_subs=1000,sampling='full'):
+    x = sample_x(low=low,high=high,n_subs=n_subs,sampling=sampling)
+    scores = np.array([np.log(i) + sp.skewnorm.rvs(a=2,size=1)[0] for i in x])
+    df = pd.DataFrame([x,scores],index=['x','score']).transpose()
+    df['train_sample'] = 1
+    return df
+
+# Heteroskedastic linear
+def dataset_het(low=1,high=100,n_subs=1000,sampling='full'):
+    x = sample_x(low=low,high=high,n_subs=n_subs,sampling=sampling)
+    scores = np.array([np.log(i) + 0.15*np.log(i)*np.random.randn() for i in x])
+    df = pd.DataFrame([x,scores],index=['x','score']).transpose()
+    df['train_sample'] = 1
+    return df
 
 class TestBasic:
     def test_read_confounds_some_categorical(self):
@@ -201,11 +231,41 @@ class TestBasic:
         assert use_approx == False
 
     def test_gp_normative_model(self):
-        data = generate_data(randseed=3)
+        data = generate_data(sample_size=4, n_sites=2, randseed=3)
         m = pynm.PyNM(data)
         m.gp_normative_model()
         assert 'GP_pred' in m.data.columns
         assert math.isclose(0,m.data['GP_residuals'].mean(),abs_tol=0.5)
+    
+    @pytest.fixture(scope='function')
+    def test_plot(self):
+        data = generate_data(randseed=3)
+        m = pynm.PyNM(data)
+        m.gp_normative_model()
+        assert m.plot() is None
+
+    def test_homo_res(self):
+        data = dataset_homo()
+        m = pynm.PyNM(data, score='score',conf='x',confounds = ['x'],group='train_sample')
+        with pytest.warns(None) as record:
+            m.gp_normative_model(method='exact')
+        assert len(record) == 0
+
+    def test_nongaussian_res(self):
+        data = dataset_skew()
+        m = pynm.PyNM(data, score='score',conf='x',confounds = ['x'],group='train_sample')
+        with pytest.warns(Warning) as record:
+            m.gp_normative_model(method='exact')
+        assert len(record) == 1
+        assert record[0].message.args[0] == "The residuals are not Gaussian!"
+
+    def test_het_res(self):
+        data = dataset_het()
+        m = pynm.PyNM(data, score='score',conf='x',confounds = ['x'],group='train_sample')
+        with pytest.warns(Warning) as record:
+            m.gp_normative_model(method='exact')
+        assert len(record) == 1
+        assert record[0].message.args[0] == "The residuals are heteroskedastic!"
     
 
 class TestApprox:
@@ -249,16 +309,9 @@ class TestApprox:
         assert sigmas.size(0) == 6
 
     def test_svgp_model(self):
-        data = generate_data(randseed=3)
+        data = generate_data(sample_size=4, n_sites=2, randseed=3)
         m = pynm.PyNM(data)
         m.gp_normative_model(method='approx')
 
         assert 'GP_pred' in m.data.columns
         assert math.isclose(0, m.data['GP_residuals'].mean(), abs_tol=0.5)
-
-    @pytest.fixture(scope='function')
-    def test_plot(self):
-        data = generate_data(randseed=3)
-        m = pynm.PyNM(data)
-        m.gp_normative_model()
-        assert m.plot() is None
