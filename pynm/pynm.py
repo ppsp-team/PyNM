@@ -504,7 +504,7 @@ class PyNM:
         
         # Test heteroskedasticity
         exog = add_constant(conf_mat)
-        _,p_het,_,_ = het_white(self.data['GP_residuals'],exog)
+        _,p_het,_,_ = het_white((self.data['GP_residuals'])**2,exog)
         if p_het < 0.05:
             warnings.warn("The residuals are heteroskedastic!")
         
