@@ -16,8 +16,6 @@ def model_prob(age, sex, offset):
 
 # randseed = 3, sample_size = 1, n_sites = 2 has ONE PROB n=6
 # randseed = 1, sample_size = 1, n_sites = 2 has NO PROB n=12
-
-
 def generate_data(group='PROB_CON', sample_size=1, n_sites=2, randseed=3):
     np.random.seed(randseed)
     n_sites = n_sites
@@ -207,6 +205,13 @@ class TestBasic:
         assert 'GP_pred' in m.data.columns
         assert math.isclose(0,m.data['GP_residuals'].mean(),abs_tol=0.5)
     
+    @pytest.fixture(scope='function')
+    def test_plot(self):
+        data = generate_data(randseed=3)
+        m = pynm.PyNM(data)
+        m.gp_normative_model()
+        assert m.plot() is None
+    
 
 class TestApprox:
     def test_svgp_init(self):
@@ -255,10 +260,3 @@ class TestApprox:
 
         assert 'GP_pred' in m.data.columns
         assert math.isclose(0, m.data['GP_residuals'].mean(), abs_tol=0.5)
-
-    @pytest.fixture(scope='function')
-    def test_plot(self):
-        data = generate_data(randseed=3)
-        m = pynm.PyNM(data)
-        m.gp_normative_model()
-        assert m.plot() is None
