@@ -28,6 +28,8 @@ import seaborn as sns
 
 import statsmodels.api as sm
 from statsmodels.sandbox.regression.predstd import wls_prediction_std
+from statsmodels.stats.diagnostic import het_white
+from statsmodels.tools.tools import add_constant
 from scipy.stats.mstats import mquantiles
 from scipy import stats
 
@@ -493,7 +495,19 @@ class PyNM:
             return False
         else:
             raise ValueError('Method must be one of "auto","approx", or "exact".')
-
+    
+    def _test_gp_residuals(self,conf_mat):
+        #Test normal
+        k2, p_norm = stats.normaltest(self.data['GP_residuals'])
+        if p_norm < 0.05:
+            warnings.warn("The residuals are not Gaussian!")
+        
+        # Test heteroskedasticity
+        exog = add_constant(conf_mat)
+        _,p_het,_,_ = het_white(self.data['GP_residuals'],exog)
+        if p_het < 0.05:
+            warnings.warn("The residuals are heteroskedastic!")
+        
     def gp_normative_model(self, length_scale=1, nu=2.5, method='auto', batch_size=256, n_inducing=500, num_epochs=20):
         """ Compute gaussian process normative model. Gaussian process regression is computed using
         the Matern Kernel with an added constant and white noise. For Matern kernel see scikit-learn documentation:
@@ -557,9 +571,8 @@ class PyNM:
             self.data['GP_pred'] = y_pred
             self.data['GP_sigma'] = sigma
             self.data['GP_residuals'] = residuals
-            k2, p = stats.normaltest(residuals)
-            if p < 0.05:
-                warnings.warn("The residuals are not Gaussian!")
+
+        self._test_gp_residuals(conf_mat)
 
     def _svgp_normative_model(self,conf_mat,score,ctr_mask,nu=2.5,batch_size=256,n_inducing=500,num_epochs=20):
         """ Compute SVGP model. See GPyTorch documentation for further details:
