@@ -644,101 +644,136 @@ class PyNM:
             self.data['GP_residuals'] = residuals
             return svgp.loss
 
-    def _plot(self, plot_type=None):
+    def _plot(self, ax,kind=None,gp_xaxis=None):
         """ Plot the data with the normative model overlaid.
 
         Parameters
         ----------
-        plot_type: str, default=None
+        ax: matplotlib axis
+            Axis on which to plot.
+        kind: str, default=None
             Type of plot among "LOESS" (local polynomial), "Centiles", "GP" (gaussian processes), 
-            "All" (all the available models) or "None" (data points only). 
+            "all" (all the available models) or "None" (data points only). 
+        gp_xaxis: str,default=None
+            Which confound to use for xaxis of GP plot. If set to None, first confound in list passed to model will be used.
 
         Returns
         -------
         Axis
             handle for the matplotlib axis of the plot
         """
-        ax = sns.scatterplot(data=self.data, x='age', y='score',
-                             hue=self.group, style=self.group)
 
-
-        if plot_type == 'All':
-            if 'LOESS_pred' in self.data.columns:
-                ax.plot(self.bins, self.zm, '-k')
-            if 'Centiles_pred' in self.data.columns:
-                ax.plot(self.bins, self.z[:, 50], '--k')
-            if 'GP_pred' in self.data.columns:
-                tmp = self.data.sort_values('age')
-                ax.plot(tmp['age'], tmp['GP_pred'], '.k')
-        if plot_type == 'LOESS':
+        if kind == 'LOESS':
+            sns.scatterplot(data=self.data, x=self.conf, y=self.score,
+                             hue=self.group, style=self.group,ax=ax)
             ax.plot(self.bins, self.zm, '-k')
             plt.fill_between(np.squeeze(self.bins),
                              np.squeeze(self.zm) - 2 * np.squeeze(self.zstd),
                              np.squeeze(self.zm) + 2 * np.squeeze(self.zstd),
                              alpha=.2, fc='grey', ec='None', label='95% CI')
-        if plot_type == 'Centiles':
+        if kind == 'Centiles':
+            sns.scatterplot(data=self.data, x=self.conf, y=self.score,
+                                hue=self.group, style=self.group,ax=ax)
             ax.plot(self.bins, self.z[:, 50], '--k')
             plt.fill_between(np.squeeze(self.bins),
                              np.squeeze(self.z[:, 5]),
                              np.squeeze(self.z[:, 95]),
                              alpha=.2, fc='grey', ec='None', label='95% CI')
-        if plot_type == 'GP':
-            tmp=self.data.sort_values('age')
-            plt.fill_between(np.squeeze(tmp['age']),
+        if kind == 'GP':
+            if gp_xaxis is None:
+                gp_xaxis = self.confounds[0]
+            sns.scatterplot(data=self.data, x=gp_xaxis, y=self.score,
+                                hue=self.group, style=self.group,ax=ax)
+            tmp=self.data.sort_values(gp_xaxis)
+            plt.fill_between(np.squeeze(tmp[gp_xaxis]),
                              np.squeeze(tmp['GP_pred']) - 2*np.squeeze(tmp['GP_sigma']),
                              np.squeeze(tmp['GP_pred']) + 2*np.squeeze(tmp['GP_sigma']),
                              alpha=.2, fc='grey', ec='None', label='95% CI')
-            ax.plot(tmp['age'], tmp['GP_pred'], '.k')
+            ax.plot(tmp[gp_xaxis], tmp['GP_pred'], '.k')
         return ax
 
-    def plot(self, plot_type=None):
+    def plot(self, kind=None,gp_xaxis=None):
         """Plot the data with the normative model overlaid.
 
         Parameters
         ----------
-        plot_type: (str, default=None
+        kind: str, default=None
             Type of plot among "LOESS" (local polynomial), "Centiles", "GP" (gaussian processes),
-            "All" (all the available models) or "None" (data points only).
+            "all" (all the available models) or None (data points only).
+        gp_xaxis: str,default=None
+            Which confound to use for xaxis of GP plot. If set to None, first confound in list passed to model will be used.
         """
-        plt.figure()
-        self._plot(plot_type)
-        plt.show()
 
-    def _plot_res(self, plot_type=None, confound='site'):
+        if kind in ['LOESS','Centiles','GP',None]:
+            fig, ax = plt.subplots(1,1)
+            self._plot(ax,kind,gp_xaxis=gp_xaxis)
+            if kind is None:
+                ax.set_title('Data')
+            else:
+                ax.set_title(kind)
+            plt.show()
+        elif kind == "all":
+            fig, ax = plt.subplots(1,3,figsize=(20,5))
+            for i,k in enumerate(['LOESS','Centiles','GP']):
+                self._plot(ax[i],kind=k,gp_xaxis=gp_xaxis)
+                ax[i].set_title(k)
+            plt.show()
+        else:
+            raise ValueError('Plot kind not recognized, must be among "Centiles","LOESS","GP","all", None.')
+
+    def _plot_res(self, ax,kind=None, confound='site'):
         """ Plot the residuals of the normative model.
 
         Parameters
         ----------
-        plot_type: str, default=None
-            Type of plot among "LOESS" (local polynomial), "Centiles", "GP" (gaussian processes). 
+        ax: matplotlib axis
+            Axis on which to plot.
+        kind: str, default=None
+            Type of plot among "LOESS" (local polynomial), "Centiles", "GP" (gaussian processes).
+        confound: str or None
+            Which confound to use as xaxis of plot, must be categorical or None.
 
         Returns
         -------
         Axis
             handle for the matplotlib axis of the plot
         """
-        if plot_type == 'LOESS':
+        if confound is None:
+            confound = np.zeros(self.data.shape[0])
+        if kind == 'LOESS':
             sns.violinplot(x=confound, y='LOESS_residuals',
-                           data=self.data, split=True, palette='Blues', hue=self.group)
-            plt.title(f"SMSE={self.SMSE_LOESS}")
-        if plot_type == 'Centiles':
+                           data=self.data, split=True, palette='Blues', hue=self.group,ax=ax)
+            ax.set_title(f"{kind} SMSE={np.round(self.SMSE_LOESS,3)}")
+        if kind == 'Centiles':
             sns.violinplot(x=confound, y='Centiles_residuals',
-                           data=self.data, split=True, palette='Blues', hue=self.group)
-            plt.title(f"SMSE={self.SMSE_Centiles}")
-        if plot_type == 'GP':
+                           data=self.data, split=True, palette='Blues', hue=self.group,ax=ax)
+            ax.set_title(f"{kind} SMSE={np.round(self.SMSE_Centiles,3)}")
+        if kind == 'GP':
             sns.violinplot(x=confound, y='GP_residuals',
-                           data=self.data, split=True, palette='Blues', hue=self.group)
-            plt.title(f"SMSE={self.SMSE_GP} - MSLL={self.MSLL}")
+                           data=self.data, split=True, palette='Blues', hue=self.group,ax=ax)
+            ax.set_title(f"{kind} SMSE={np.round(self.SMSE_GP,3)} - MSLL={np.round(self.MSLL,3)}")
+        if not isinstance(confound,str):
+            ax.set_xticklabels([''])
         return
 
-    def plot_res(self, plot_type=None, confound='site'):
+    def plot_res(self, kind='all', confound='site'):
         """Plot the residuals of the normative model.
 
         Parameters
         ----------
-        plot_type: (str, default=None
+        kind: str, default=None
             Type of plot among "LOESS" (local polynomial), "Centiles", "GP" (gaussian processes).
+        confound: str or None
+            Which confound to use as xaxis of plot, must be categorical or None.
         """
-        plt.figure()
-        self._plot_res(plot_type, confound)
-        plt.show()
+        if kind in ['LOESS','Centiles','GP']:
+            fig, ax = plt.subplots(1,1)
+            self._plot_res(ax,kind,confound=confound)
+            plt.show()
+        elif kind == "all":
+            fig, ax = plt.subplots(1,3,figsize=(20,5))
+            for i,k in enumerate(['LOESS','Centiles','GP']):
+                self._plot_res(ax[i],kind=k,confound=confound)
+            plt.show()
+        else:
+            raise ValueError('Plot kind not recognized, must be among "Centiles","LOESS","GP","all".')
