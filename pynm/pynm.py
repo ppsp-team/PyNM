@@ -87,6 +87,18 @@ class PyNM:
     train_sample: str or float
         Which method to use for a training sample, can be 'controls' to use all the controls, 
         'manual' to be manually set, or a float in (0,1] for a percentage of controls.
+    min_conf: int
+        Minimum conf for LOESS & centiles models.
+    max_conf: int
+        Maximum conf for LOESS & centiles models.
+    min_score: int
+        Minimum score for LOESS & centiles models.
+    max_score: int
+        Maximum score for LOESS & centiles models.
+    bin_spacing: int
+        Distance between bins for LOESS & centiles models.
+    bin_width: float
+        Width of bins for LOESS & centiles models.
     bins: array
         Bins for the centiles and LOESS models.
     bin_count: array
@@ -109,7 +121,8 @@ class PyNM:
         Mean Standardized Log Loss of Gaussian Process normative model
     """
 
-    def __init__(self, data, score='score', group='group', conf='age', confounds=['age', 'C(sex)', 'C(site)'], train_sample='controls'):
+    def __init__(self, data, score='score', group='group', conf='age', confounds=['age', 'C(sex)', 'C(site)'], train_sample='controls',
+                min_conf=-1, max_conf=-1, min_score=-1, max_score=-1,bin_spacing=8, bin_width=1.5):
         """ Create a PyNM object.
 
         Parameters
@@ -129,6 +142,18 @@ class PyNM:
         train_sample: str or float, default='controls'
             Which method to use for a training sample, can be 'controls' to use all the controls, 
             'manual' to be manually set, or a float in (0,1] for a percentage of controls.
+        min_conf: int, default=-1
+            Minimum conf for LOESS & centiles models.
+        max_conf: int, default=-1
+            Maximum conf for LOESS & centiles models.
+        min_score: int, default=-1
+            Minimum score for LOESS & centiles models.
+        max_score: int, default=-1
+            Maximum score for LOESS & centiles models.
+        bin_spacing: int, default=-1
+            Distance between bins for LOESS & centiles models.
+        bin_width: float, default=-1
+            Width of bins for LOESS & centiles models.
         """
         self.data = data.copy()
         self.score = score
@@ -138,6 +163,12 @@ class PyNM:
         self.train_sample = train_sample
         self.CTR = None
         self.PROB = None
+        self.min_conf = min_conf
+        self.max_conf = max_conf
+        self.min_score = min_score
+        self.max_score = max_score
+        self.bin_spacing = bin_spacing
+        self.bin_width = bin_width
         self.bins = None
         self.bin_count = None
         self.zm = None
@@ -249,47 +280,29 @@ class PyNM:
         return ctr_mask, prob_mask
 
     # Default values for age in days
-    def _create_bins(self, min_age=-1, max_age=-1, min_score=-1, max_score=-1,
-                     bin_spacing=8, bin_width=1.5):
+    def _create_bins(self):
         """ Create bins for the centiles and LOESS models.
-
-        Parameters
-        ----------
-        min_age: int, default=-1
-            Minimum age for model.
-        max_age: int, default=-1
-            Maximum age for model.
-        min_score: int, default=-1
-            Minimum score for model.
-        max_score: int, default=-1
-            Maximum score for model.
-        bin_spacing: int, default=-1
-            Distance between bins.
-        bin_width: float, default=-1
-            Width of bins.
-
         Returns
         -------
         array
             Bins for the centiles and LOESS models.
         """
-        if min_age == -1:
-            min_age = self.data[self.conf].min()
-        if max_age == -1:
-            max_age = self.data[self.conf].max()
-        if min_score == -1:
-            min_score = self.data[self.score].min()
-        if max_score == -1:
-            max_score = self.data[self.score].max()
+        if self.min_conf == -1:
+            self.min_conf = self.data[self.conf].min()
+        if self.max_conf == -1:
+            self.max_conf = self.data[self.conf].max()
+        if self.min_score == -1:
+            self.min_score = self.data[self.score].min()
+        if self.max_score == -1:
+            self.max_score = self.data[self.score].max()
 
-        # if max age is more than 300 assume age is in days not years
-        if max_age > 300:
-            bin_spacing *= 365
-            bin_width *= 365
+        # if max conf is more than 300 assume age is in days not years
+        if self.max_conf > 300:
+            self.bin_spacing *= 365
+            self.bin_width *= 365
 
         # define the bins (according to width by age)
-        self.bin_width = bin_width
-        self.bins = np.arange(min_age, max_age + bin_width, bin_spacing)
+        self.bins = np.arange(self.min_conf, self.max_conf + self.bin_width, self.bin_spacing)
 
         return self.bins
 

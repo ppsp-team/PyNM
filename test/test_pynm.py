@@ -153,8 +153,8 @@ class TestBasic:
 
     def test_bins_num(self):
         data = generate_data(randseed=11)
-        m = pynm.PyNM(data)
-        m._create_bins(bin_spacing=5, bin_width=10)
+        m = pynm.PyNM(data,bin_spacing=5, bin_width=10)
+        m._create_bins()
         assert len(m.bins) == 6
 
     def test_loess_rank(self):
