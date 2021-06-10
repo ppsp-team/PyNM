@@ -298,7 +298,7 @@ class PyNM:
 
         if self.bin_width == -1:
             self.bin_width = (self.max_conf - self.min_conf)/100
-        if self.bin_spacing == -2:
+        if self.bin_spacing == -1:
             self.bin_spacing = (self.max_conf - self.min_conf)/10
 
         # define the bins (according to width)
