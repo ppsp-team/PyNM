@@ -202,7 +202,7 @@ class PyNM:
         train_sample[ctr_idx_train] = 1
         self.data['train_sample'] = train_sample
 
-        print('Fitting model with train sample size = {}: using {}/{} of controls...'.format(train_size, n_ctr_train, n_ctr))
+        print('Models will be fit with train sample size = {}: using {}/{} of controls.'.format(train_size, n_ctr_train, n_ctr))
 
     def _set_group(self):
         """ Read the specified training sample and set the group attribute to refer to the appropriate column of data.
@@ -222,11 +222,11 @@ class PyNM:
             With train_sample float: Numerical value for train_sample must be in the range (0,1].
         """
         if self.train_sample == 'controls':
-            print('Fitting model on full set of controls...')
+            print('Models will be fit on full set of controls.')
             if self.data[self.data[self.group] == self.CTR].shape[0] == 0:
                 raise ValueError('Dataset has no controls for training sample.')
         elif self.train_sample == 'manual':
-            print('Fitting model on specified training sample...')
+            print('Models will be fit using specified training sample.')
             if 'train_sample' not in self.data.columns:
                 raise ValueError('Data has no column "train_sample". To manually specify a training sample, data .csv '
                                  'must contain a column "train_sample" with included subjects marked with 1 and rest as 0.')
