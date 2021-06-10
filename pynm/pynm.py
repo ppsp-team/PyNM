@@ -122,7 +122,7 @@ class PyNM:
     """
 
     def __init__(self, data, score='score', group='group', conf='age', confounds=['age', 'C(sex)', 'C(site)'], train_sample='controls',
-                min_conf=-1, max_conf=-1, min_score=-1, max_score=-1,bin_spacing=8, bin_width=1.5):
+                min_conf=-1, max_conf=-1, min_score=-1, max_score=-1,bin_spacing=-1, bin_width=-1):
         """ Create a PyNM object.
 
         Parameters
@@ -296,15 +296,13 @@ class PyNM:
         if self.max_score == -1:
             self.max_score = self.data[self.score].max()
 
-        # if max conf is more than 300 assume age is in days not years
-        if self.max_conf > 300:
-            self.bin_spacing *= 365
-            self.bin_width *= 365
+        if self.bin_width == -1:
+            self.bin_width = (self.max_conf - self.min_conf)/100
+        if self.bin_spacing == -2:
+            self.bin_spacing = (self.max_conf - self.min_conf)/10
 
-
-        # define the bins (according to width by age)
+        # define the bins (according to width)
         self.bins = np.arange(self.min_conf, self.max_conf + self.bin_width, self.bin_spacing)
-
         return self.bins
 
     def bins_num(self):
@@ -644,9 +642,6 @@ class PyNM:
             self.data['GP_pred'] = y_pred
             self.data['GP_sigma'] = sigma.numpy()
             self.data['GP_residuals'] = residuals
-            k2, p = stats.normaltest(residuals)
-            if p<0.05:
-                warnings.warn("The residual are not Gaussian!")
             return svgp.loss
 
     def _plot(self, plot_type=None):
