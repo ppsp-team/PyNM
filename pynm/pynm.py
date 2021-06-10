@@ -301,6 +301,7 @@ class PyNM:
             self.bin_spacing *= 365
             self.bin_width *= 365
 
+
         # define the bins (according to width by age)
         self.bins = np.arange(self.min_conf, self.max_conf + self.bin_width, self.bin_spacing)
 
@@ -481,7 +482,7 @@ class PyNM:
 
     def _use_approx(self, method='auto'):
         """ Choose wether or not to use SVGP model. If method is set to 'auto' SVGP is chosen
-        for datasets with more than 1000 points.
+        for datasets with more than 2000 points.
 
         Parameters
         ----------
@@ -495,15 +496,15 @@ class PyNM:
             Method must be one of "auto","approx", or "exact".
         """
         if method == 'auto':
-            if self.data.shape[0] > 1000:
+            if self.data.shape[0] > 2000:
                 return True
             else:
                 return False
         elif method == 'approx':
             return True
         elif method == 'exact':
-            if self.data.shape[0] > 1000:
-                warnings.warn("Exact GP model with over 1000 data points requires "
+            if self.data.shape[0] > 2000:
+                warnings.warn("Exact GP model with over 2000 data points requires "
                               "large amounts of time and memory, continuing with exact model.",Warning)
             return False
         else:
