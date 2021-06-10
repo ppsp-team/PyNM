@@ -222,12 +222,12 @@ class TestBasic:
         assert m._use_approx(method='approx') == True
     
     def test_use_approx_exact(self):
-        data = generate_data(randseed=3,sample_size=1000)
+        data = generate_data(randseed=3,sample_size=2000)
         m = pynm.PyNM(data)
         with pytest.warns(Warning) as record:
             use_approx = m._use_approx(method='exact')
         assert len(record) == 1
-        assert record[0].message.args[0] == "Exact GP model with over 1000 data points requires large amounts of time and memory, continuing with exact model."
+        assert record[0].message.args[0] == "Exact GP model with over 2000 data points requires large amounts of time and memory, continuing with exact model."
         assert use_approx == False
 
     def test_gp_normative_model(self):
