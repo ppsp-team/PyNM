@@ -147,7 +147,7 @@ class TestBasic:
 
     def test_create_bins(self):
         data = generate_data(randseed=3)
-        m = pynm.PyNM(data)
+        m = pynm.PyNM(data,bin_spacing=8,bin_width=1.5)
         m.centiles_normative_model()
         assert m.bins is not None
 
@@ -159,25 +159,25 @@ class TestBasic:
 
     def test_loess_rank(self):
         data = generate_data(randseed=11)
-        m = pynm.PyNM(data)
+        m = pynm.PyNM(data,bin_spacing=8,bin_width=1.5)
         m.loess_normative_model()
         assert np.sum(m.data.LOESS_rank) == 1
 
     def test_loess_normative_model(self):
         data = generate_data(randseed=11)
-        m = pynm.PyNM(data)
+        m = pynm.PyNM(data,bin_spacing=8,bin_width=1.5)
         m.loess_normative_model()
         assert math.isclose(2.3482, np.sum(m.data.LOESS_pred), abs_tol=0.00001)
 
     def test_centiles_rank(self):
         data = generate_data(randseed=11)
-        m = pynm.PyNM(data)
+        m = pynm.PyNM(data,bin_spacing=8,bin_width=1.5)
         m.centiles_normative_model()
         assert np.sum(m.data.Centiles_rank) == -22
 
     def test_centiles_normative_model(self):
         data = generate_data(randseed=11)
-        m = pynm.PyNM(data)
+        m = pynm.PyNM(data,bin_spacing=8,bin_width=1.5)
         m.centiles_normative_model()
         assert np.sum(m.data.Centiles) == 446
 
