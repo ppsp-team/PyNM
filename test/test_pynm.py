@@ -315,3 +315,17 @@ class TestApprox:
 
         assert 'GP_pred' in m.data.columns
         assert math.isclose(0, m.data['GP_residuals'].mean(), abs_tol=0.5)
+
+class TestGAMLSS:
+    def test_get_r_formulas(self):
+        data = generate_data(sample_size=4, n_sites=2, randseed=3)
+        m = pynm.PyNM(data)
+        m.gamlss_normative_model(mu='score ~ age')
+        #mu,sigma,nu,tau = m._get_r_formulas('score ~ cs(age) + site',None,None,None)
+        assert True #not isinstance(mu,str)
+
+    def test_gamlss(self):
+        data = generate_data(sample_size=4, n_sites=2, randseed=3)
+        m = pynm.PyNM(data)
+        m.gamlss_normative_model(mu='score ~ age')
+        assert 'GAMLSS_pred' in m.data.columns
