@@ -20,7 +20,6 @@
 # python_version  : 3.7
 # ==============================================================================
 
-import re
 import pandas as pd
 import numpy as np
 import warnings
@@ -645,60 +644,6 @@ class PyNM:
             self.data['GP_residuals'] = residuals
             return svgp.loss
     
-    def _get_r_formulas(self,mu,sigma,nu,tau):
-        """Convert from string input to R formula.
-
-        Parameters
-        ----------
-        mu: str or None
-            Formula for mu (location) parameter of GAMLSS model.
-        sigma: str or None
-            Formula for mu (location) parameter of GAMLSS model.
-        nu: str or None
-            Formula for mu (location) parameter of GAMLSS model.
-        tau: str or None
-            Formula for mu (location) parameter of GAMLSS model.
-
-        Raises
-        ------
-        ValueError
-            If any of the input strings contains a function call not recognised by the R GAMLSS package.
-        
-        Returns
-        -------
-        R formula, R formula, R formula, R formula
-            R formula equivalent for each input string.
-        """
-        #TODO: convert None to R
-        if mu is None:
-            mu = '{} ~ {}'.format(self.score,'+'.join(self.confounds))
-        if sigma is None:
-            sigma = '~ 1'
-        if nu is None:
-            nu = '~ 1'
-        if tau is None:
-            tau = '~ 1'
-        
-        #from formulas get r function
-        p = re.compile("\w*\(")
-        funcs = []
-        for s in [mu,sigma,nu,tau]: #TODO: when convert None, update to list of existing
-            for f in p.findall(s):
-                funcs.append(f[:-1])
-
-        for func in funcs:
-            try:
-                exec("{} = r['{}']".format(func,func))
-            except:
-                raise ValueError("'{}' function not found in R GAMLSS package. See GAMLSS documentation for available functions.".format(func))
-
-        formula = r['formula']
-        mu_f = formula(mu)
-        sigma_f = formula(sigma)
-        nu_f = formula(nu)
-        tau_f = formula(tau)
-        return mu_f,sigma_f,nu_f,tau_f
-    
     def gamlss_normative_model(self,mu=None,sigma=None,nu=None,tau=None,family='SHASHo2',lib_loc=None):
         """Compute GAMLSS normative model.
         
@@ -718,48 +663,19 @@ class PyNM:
             Path to location of installed GAMLSS package.
         """
         try:
-            import rpy2
-            import rpy2.robjects as robjects
-            from rpy2.robjects.packages import importr
-            from rpy2.robjects import numpy2ri
-            from rpy2.robjects import pandas2ri
-            from rpy2.robjects import r
-
-            numpy2ri.activate()
-            pandas2ri.activate()
-            if lib_loc is None:
-                gamlss_data = importr('gamlss.data')
-                gamlss_dist = importr('gamlss.dist')
-                gamlss = importr('gamlss')
-            else:
-                gamlss_data = importr('gamlss.data',lib_loc=lib_loc)
-                gamlss_dist = importr('gamlss.dist',lib_loc=lib_loc)
-                gamlss = importr('gamlss',lib_loc=lib_loc)
+            from pynm.gamlss import GAMLSS
         except:
             raise ImportError("R and the GAMLSS package must be installed to use GAMLSS model, see documentation for installation help.")
         else:
             # get proband and control masks
             ctr_mask, _ = self._get_masks()
 
-            # get formulas for each parameter
-            mu_f, sigma_f, nu_f,tau_f = self._get_r_formulas(mu,sigma,nu,tau)
+            gamlss = GAMLSS(mu=mu,sigma=sigma,nu=nu,tau=tau,family=family,lib_loc=lib_loc)
+            gamlss.fit(self.data[ctr_mask])
+            res = gamlss.predict(self.data)
 
-            # create GAMLSS model
-            try:
-                rfamily = r[family]
-            except:
-                raise ValueError("Provided family not valid, choose 'SHASHo2', 'NO' or see R documentation for GAMLSS package for other available families of distributions.")
-            else:
-                g = gamlss.gamlss(mu_f,
-                        sigma_formula=sigma_f,
-                        nu_formula=nu_f,
-                        tau_formula=tau_f,
-                        data=self.data[ctr_mask],
-                        family=rfamily)
-                
-                res = gamlss.predict_gamlss(g,newdata=self.data)
-                self.data['GAMLSS_pred'] = res
-                self.data['GAMLSS_residuals'] = self.data[self.score] - self.data['GAMLSS_pred']
+            self.data['GAMLSS_pred'] = res
+            self.data['GAMLSS_residuals'] = self.data[self.score] - self.data['GAMLSS_pred']
 
     def _plot(self, ax,kind=None,gp_xaxis=None):
         """ Plot the data with the normative model overlaid.
