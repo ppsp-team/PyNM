@@ -5,7 +5,48 @@ from rpy2.robjects import pandas2ri
 from rpy2.robjects import r
 
 class GAMLSS:
+    """Class for GAMLSS model.
+        
+        Attributes
+        ----------
+        gamlss_data: R package
+            Python imported R package.
+        gamlss_dist: R package
+            Python imported R package.
+        gamlss: R package
+            Python imported R package.
+        mu_f: R formula
+            Formula for mu (location) parameter.
+        sigma_f: R formula
+            Formula for sigma (shape) parameter.
+        nu_f: R formula
+            Formula for nu parameter.
+        tau_f: R formula
+            Formula for tau parameter.
+        rfamily: R object
+            Family of distributions to use for fitting.
+        model: R object
+            Fitted gamlss model.
+        """
+
     def __init__(self,mu=None,sigma=None,nu=None,tau=None,family='SHASHo2',lib_loc=None):
+        """Create GAMLSS object.
+        
+        Parameters
+        ----------
+        mu: str, default=None
+            Formula for mu (location) parameter.
+        sigma: str, default=None
+            Formula for sigma (shape) parameter.
+        nu: str, default=None
+            Formula for nu parameter.
+        tau: str, default=None
+            Formula for tau parameter.
+        family: str,default='SHASHo2'
+            Family of distributions to use for fitting, default is 'SHASHo2'. See R documentation for GAMLSS package for other available families of distributions.
+        lib_loc: str, default=None
+            Path to location of installed GAMLSS package.
+        """
         numpy2ri.activate()
         pandas2ri.activate()
 
@@ -79,6 +120,13 @@ class GAMLSS:
         return mu_f,sigma_f,nu_f,tau_f
     
     def fit(self,train_data):
+        """Create and fit gamlss model.
+
+        Parameters
+        ----------
+        train_data: DataFrame
+            DataFrame with training data.
+        """
         self.model = self.gamlss.gamlss(self.mu_f,
                     sigma_formula=self.sigma_f,
                     nu_formula=self.nu_f,
@@ -87,5 +135,12 @@ class GAMLSS:
                     data=train_data)
     
     def predict(self,test_data):
+        """Predict from fitted gamlss model.
+        
+        Parameters
+        ----------
+        test_data: DataFrame
+            DataFrame with test data.
+        """
         res = self.gamlss.predict_gamlss(self.model,newdata=test_data)
         return res
