@@ -1,4 +1,5 @@
-import pynm.pynm as pynm
+from pynm import pynm
+from pynm import gamlss 
 import numpy as np
 import pandas as pd
 import scipy.stats as sp
@@ -80,7 +81,7 @@ def dataset_het(low=1,high=100,n_subs=1000,sampling='full'):
 
 class TestBasic:
     def test_read_confounds_some_categorical(self):
-        conf = ['a', 'b', 'C(c)']
+        conf = ['a', 'b', 'c(c)']
         clean, cat = pynm._read_confounds(conf)
         assert clean == ['a', 'b', 'c']
         assert cat == ['c']
@@ -92,7 +93,7 @@ class TestBasic:
         assert cat == []
 
     def test_read_confounds_all_categorical(self):
-        conf = ['C(a)', 'C(b)', 'C(c)']
+        conf = ['c(a)', 'c(b)', 'c(c)']
         clean, cat = pynm._read_confounds(conf)
         assert clean == ['a', 'b', 'c']
         assert cat == ['a', 'b', 'c']
@@ -318,14 +319,22 @@ class TestApprox:
 
 class TestGAMLSS:
     def test_get_r_formulas(self):
-        data = generate_data(sample_size=4, n_sites=2, randseed=3)
-        m = pynm.PyNM(data)
-        m.gamlss_normative_model(mu='score ~ age')
-        #mu,sigma,nu,tau = m._get_r_formulas('score ~ cs(age) + site',None,None,None)
-        assert True #not isinstance(mu,str)
+        g = gamlss.GAMLSS(mu='score ~ 1')
+        mu,_,_,_ = g._get_r_formulas('score ~ cs(age) + site',None,None,None)
+        assert not isinstance(mu,str)
 
     def test_gamlss(self):
         data = generate_data(sample_size=4, n_sites=2, randseed=3)
         m = pynm.PyNM(data)
-        m.gamlss_normative_model(mu='score ~ age')
+        m.gamlss_normative_model(mu='score ~ cs(age)',sigma='~ age + site',tau='~ c(sex)')
         assert 'GAMLSS_pred' in m.data.columns
+    
+    def test_gamlss_default_formulas(self):
+        data = generate_data(sample_size=4, n_sites=2, randseed=3)
+        m = pynm.PyNM(data)
+        m.gamlss_normative_model()
+        assert 'GAMLSS_pred' in m.data.columns
+    
+    def test_gamlss_invalid_init(self):
+        with pytest.raises(ValueError):
+            gamlss.GAMLSS()

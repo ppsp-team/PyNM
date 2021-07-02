@@ -43,19 +43,19 @@ def _read_confounds(confounds):
     Parameters
     ----------
     confounds : list of str
-        List of confounds with categorical variables indicated by C(var).
+        List of confounds with categorical variables indicated by c(var) ('c' must be lower case).
 
     Returns
     -------
     list
-        List of all confounds without wrapper on categorical variables: C(var) -> var.
+        List of all confounds without wrapper on categorical variables: c(var) -> var.
     list
         List of only categorical confounds without wrapper.
     """
     categorical = []
     clean_confounds = []
     for conf in confounds:
-        if ((conf[0:2] == 'C(') & (conf[-1] == ')')):
+        if ((conf[0:2] == 'c(') & (conf[-1] == ')')):
             categorical.append(conf[2:-1])
             clean_confounds.append(conf[2:-1])
         else:
@@ -83,7 +83,7 @@ class PyNM:
         Label of column from data with confound to use for LOESS and centiles models.
     confounds: list of str
         List of labels of columns from data with confounds to use for 
-        GP model with categorical values denoted by C(var).
+        GP model with categorical values denoted by c(var) ('c' must be lower case).
     train_sample: str or float
         Which method to use for a training sample, can be 'controls' to use all the controls, 
         'manual' to be manually set, or a float in (0,1] for a percentage of controls.
@@ -121,7 +121,7 @@ class PyNM:
         Mean Standardized Log Loss of Gaussian Process normative model
     """
 
-    def __init__(self, data, score='score', group='group', conf='age', confounds=['age', 'C(sex)', 'C(site)'], train_sample='controls',
+    def __init__(self, data, score='score', group='group', conf='age', confounds=['age', 'c(sex)', 'c(site)'], train_sample='controls',
                 min_conf=-1, max_conf=-1, min_score=-1, max_score=-1,bin_spacing=-1, bin_width=-1):
         """ Create a PyNM object.
 
@@ -136,9 +136,9 @@ class PyNM:
             Label of column from data that encodes wether subjects are probands or controls.
         conf: str, default='age'
             Label of column from data with confound to use for LOESS and centiles models.
-        confounds: list of str, default=['age', 'C(sex)', 'C(site)']
+        confounds: list of str, default=['age', 'c(sex)', 'c(site)']
             List of labels of columns from data with confounds to use for 
-            GP model with categorical values denoted by C(var).
+            GP model with categorical values denoted by c(var) ('c' must be lower case).
         train_sample: str or float, default='controls'
             Which method to use for a training sample, can be 'controls' to use all the controls, 
             'manual' to be manually set, or a float in (0,1] for a percentage of controls.
@@ -670,12 +670,14 @@ class PyNM:
             # get proband and control masks
             ctr_mask, _ = self._get_masks()
 
-            gamlss = GAMLSS(mu=mu,sigma=sigma,nu=nu,tau=tau,family=family,lib_loc=lib_loc)
+            gamlss = GAMLSS(mu=mu,sigma=sigma,nu=nu,tau=tau,family=family,lib_loc=lib_loc,score=self.score,confounds=self.confounds)
             gamlss.fit(self.data[ctr_mask])
             res = gamlss.predict(self.data)
 
             self.data['GAMLSS_pred'] = res
             self.data['GAMLSS_residuals'] = self.data[self.score] - self.data['GAMLSS_pred']
+
+            #TODO: test residuals?
 
     def _plot(self, ax,kind=None,gp_xaxis=None):
         """ Plot the data with the normative model overlaid.
