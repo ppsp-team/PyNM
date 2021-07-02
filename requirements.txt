@@ -1,11 +1,12 @@
 tqdm
-pandas
+pandas==1.2.3
 numpy >= 1.16.5
 statsmodels
 scipy
-sklearn
-pytest
-torch
-gpytorch
+sklearn==0.24.1
+pytest==6.2.3
+torch==1.8.0
+gpytorch==1.4.0
 matplotlib
 seaborn
+rpy2==3.1.0
