@@ -25,6 +25,7 @@ import numpy as np
 import warnings
 import matplotlib.pyplot as plt
 import seaborn as sns
+import warnings
 
 import statsmodels.api as sm
 from statsmodels.sandbox.regression.predstd import wls_prediction_std
@@ -193,7 +194,7 @@ class PyNM:
         """
         ctr_idx = self.data[self.data[self.group] == self.CTR].index.tolist()
         n_ctr = len(ctr_idx)
-        n_ctr_train = max(int(train_size*n_ctr), 1)  # make this minimum 2?
+        n_ctr_train = max(int(train_size*n_ctr), 1)  #TODO: make this minimum 2?
 
         np.random.seed(1)
         ctr_idx_train = np.array(np.random.choice(ctr_idx, size=n_ctr_train, replace=False))
@@ -431,7 +432,6 @@ class PyNM:
         dists = [np.abs(conf - self.bins) for conf in self.data[self.conf]]
         idx = [np.argmin(d) for d in dists]
         centiles = np.array([self.z[i] for i in idx])
-
         result = np.zeros(centiles.shape[0])
         max_mask = self.data[self.score] >= np.max(centiles, axis=1)
         min_mask = self.data[self.score] < np.min(centiles, axis=1)
@@ -671,8 +671,11 @@ class PyNM:
             ctr_mask, _ = self._get_masks()
 
             gamlss = GAMLSS(mu=mu,sigma=sigma,nu=nu,tau=tau,family=family,lib_loc=lib_loc,score=self.score,confounds=self.confounds)
-            gamlss.fit(self.data[ctr_mask])
-            res = gamlss.predict(self.data)
+            #TODO: more graceful fix for this problem
+            nan_cols = ['LOESS_pred','LOESS_residuals','LOESS_rank','Centiles_pred','Centiles_residuals','Centiles','Centiles_rank']
+            gamlss_data = self.data[[c for c in self.data.columns if c not in nan_cols]]
+            gamlss.fit(gamlss_data[ctr_mask])
+            res = gamlss.predict(gamlss_data)
 
             self.data['GAMLSS_pred'] = res
             self.data['GAMLSS_residuals'] = self.data[self.score] - self.data['GAMLSS_pred']
