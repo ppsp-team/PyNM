@@ -1,4 +1,5 @@
 import re
+import rpy2.robjects as ro
 from rpy2.robjects.packages import importr
 from rpy2.robjects import numpy2ri
 from rpy2.robjects import pandas2ri
@@ -29,7 +30,7 @@ class GAMLSS:
             Fitted gamlss model.
         """
 
-    def __init__(self,mu=None,sigma=None,nu=None,tau=None,family='SHASHo2',lib_loc=None,score=None,confounds=None):
+    def __init__(self,mu=None,sigma=None,nu=None,tau=None,family='SHASHo2',what='mu',lib_loc=None,score=None,confounds=None):
         """Create GAMLSS object. Formulas must be written for R, using functions available in the GAMLSS package.
         
         Parameters
@@ -44,6 +45,8 @@ class GAMLSS:
             Formula for tau parameter. If None, formula is '~ 1'.
         family: str,default='SHASHo2'
             Family of distributions to use for fitting, default is 'SHASHo2'. See R documentation for GAMLSS package for other available families of distributions.
+        what: str, default='mu'
+            What parameter to predict, can be 'mu', 'sigma', 'nu' or 'tau'.
         lib_loc: str, default=None
             Path to location of installed GAMLSS package.
         score: str, default=None
@@ -58,11 +61,13 @@ class GAMLSS:
             self.gamlss_data = importr('gamlss.data')
             self.gamlss_dist = importr('gamlss.dist')
             self.gamlss = importr('gamlss')
+            self.base = importr('base')
         else:
             self.gamlss_data = importr('gamlss.data',lib_loc=lib_loc)
             self.gamlss_dist = importr('gamlss.dist',lib_loc=lib_loc)
             self.gamlss = importr('gamlss',lib_loc=lib_loc)
         
+        self.what = what
         self.score = score
         self.confounds = confounds
         self.mu_f,self.sigma_f,self.nu_f,self.tau_f = self._get_r_formulas(mu,sigma,nu,tau)
@@ -109,7 +114,7 @@ class GAMLSS:
             tau = '~ 1'
         
         # get r functions from formulas
-        p = re.compile("\w*\(")
+        p = re.compile(r"\w*\(") # raw string (to avoid deprecation warning)
         funcs = []
         for s in [mu,sigma,nu,tau]:
             for f in p.findall(s):
@@ -146,6 +151,8 @@ class GAMLSS:
         ----------
         test_data: DataFrame
             DataFrame with test data.
+        what: str
+            Which parameter to predict, can be 'mu','sigma', 'nu', or 'tau'.
         """
-        res = self.gamlss.predict_gamlss(self.model,newdata=test_data)
+        res = self.gamlss.predict_gamlss(self.model,newdata=test_data,what=self.what)
         return res

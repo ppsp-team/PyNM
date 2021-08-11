@@ -644,7 +644,7 @@ class PyNM:
             self.data['GP_residuals'] = residuals
             return svgp.loss
     
-    def gamlss_normative_model(self,mu=None,sigma=None,nu=None,tau=None,family='SHASHo2',lib_loc=None):
+    def gamlss_normative_model(self,mu=None,sigma=None,nu=None,tau=None,family='SHASHo2',what='mu',lib_loc=None):
         """Compute GAMLSS normative model.
         
         Parameters
@@ -659,6 +659,8 @@ class PyNM:
             Formula for tau parameter.
         family: str,default='SHASHo2'
             Family of distributions to use for fitting, default is 'SHASHo2'. See R documentation for GAMLSS package for other available families of distributions.
+        what: str, default='mu'
+            What parameter to predict, can be 'mu', 'sigma', 'nu' or 'tau'.
         lib_loc: str, default=None
             Path to location of installed GAMLSS package.
         """
@@ -670,7 +672,7 @@ class PyNM:
             # get proband and control masks
             ctr_mask, _ = self._get_masks()
 
-            gamlss = GAMLSS(mu=mu,sigma=sigma,nu=nu,tau=tau,family=family,lib_loc=lib_loc,score=self.score,confounds=self.confounds)
+            gamlss = GAMLSS(mu=mu,sigma=sigma,nu=nu,tau=tau,family=family,what=what,lib_loc=lib_loc,score=self.score,confounds=self.confounds)
             #TODO: more graceful fix for this problem
             nan_cols = ['LOESS_pred','LOESS_residuals','LOESS_rank','Centiles_pred','Centiles_residuals','Centiles','Centiles_rank']
             gamlss_data = self.data[[c for c in self.data.columns if c not in nan_cols]]

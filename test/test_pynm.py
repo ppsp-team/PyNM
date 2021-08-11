@@ -338,31 +338,7 @@ class TestGAMLSS:
         with pytest.raises(ValueError):
             gamlss.GAMLSS()
     
-    def test_gamlss_data_issue(self):
-        df = generate_data(n_sites=4,sample_size=35,randseed=650)
-        #Initialize pynm w/ data and confounds
-        m = pynm.PyNM(df,'score','group',
-                conf = 'age',                           #age confound for LOESS and Centiles model
-                confounds = ['age','c(sex)','c(site)']) #multivarite confounds for GP model
-        m.gamlss_normative_model(mu='score ~ age + c(sex) + c(site)',sigma = '~ age',family='SHASHo2')
-    
-    def test_gamlss_data_issue2(self):
-        df = generate_data(n_sites=4,sample_size=35,randseed=650)
-        #Initialize pynm w/ data and confounds
-        m = pynm.PyNM(df,'score','group',
-                conf = 'age',                           #age confound for LOESS and Centiles model
-                confounds = ['age','c(sex)','c(site)']) #multivarite confounds for GP model
-        m.gamlss_normative_model(mu='score ~ age + c(sex) + c(site)',sigma = '~ 1',family='SHASHo2')
-    
-    def test_gamlss_data_issue3(self):
-        df = generate_data(n_sites=4,sample_size=35,randseed=650)
-        #Initialize pynm w/ data and confounds
-        m = pynm.PyNM(df,'score','group',
-                conf = 'age',                           #age confound for LOESS and Centiles model
-                confounds = ['age','c(sex)','c(site)']) #multivarite confounds for GP model
-        m.gamlss_normative_model(mu='score ~ ps(age) + c(sex) + c(site)',sigma = '~ age',family='SHASHo2')
-    
-    def test_gamlss_data_issue4(self):
+    def test_gamlss_nan_issue(self):
         df = generate_data(n_sites=4,sample_size=35,randseed=650)
         #Initialize pynm w/ data and confounds
         m = pynm.PyNM(df,'score','group',
@@ -370,38 +346,20 @@ class TestGAMLSS:
                 confounds = ['age','c(sex)','c(site)']) #multivarite confounds for GP model
         m.loess_normative_model()
         m.centiles_normative_model()
-        m.gp_normative_model()
         m.gamlss_normative_model(mu='score ~ ps(age) + c(sex) + c(site)',sigma = '~ age',family='SHASHo2')
 
-    def test_gamlss_data_issue5(self):
+    def test_gamlss_random_effect(self):
         df = generate_data(n_sites=4,sample_size=35,randseed=650)
         #Initialize pynm w/ data and confounds
         m = pynm.PyNM(df,'score','group',
                 conf = 'age',                           #age confound for LOESS and Centiles model
                 confounds = ['age','c(sex)','c(site)']) #multivarite confounds for GP model
-        #m.loess_normative_model()
-        #m.centiles_normative_model()
-        m.gp_normative_model()
-        m.gamlss_normative_model(mu='score ~ ps(age) + c(sex) + c(site)',sigma = '~ age',family='SHASHo2')
+        m.gamlss_normative_model(mu='score ~ ps(age) + c(sex) + random(as.factor(site))',sigma = '~ ps(age)',family='SHASHo2',what='sigma')
     
-    def test_gamlss_data_issue6(self):
+    def test_gamlss_what_mu(self):
         df = generate_data(n_sites=4,sample_size=35,randseed=650)
         #Initialize pynm w/ data and confounds
         m = pynm.PyNM(df,'score','group',
                 conf = 'age',                           #age confound for LOESS and Centiles model
                 confounds = ['age','c(sex)','c(site)']) #multivarite confounds for GP model
-        m.loess_normative_model()
-        #m.centiles_normative_model()
-        #m.gp_normative_model()
-        m.gamlss_normative_model(mu='score ~ ps(age) + c(sex) + c(site)',sigma = '~ age',family='SHASHo2')
-    
-    def test_gamlss_data_issue7(self):
-        df = generate_data(n_sites=4,sample_size=35,randseed=650)
-        #Initialize pynm w/ data and confounds
-        m = pynm.PyNM(df,'score','group',
-                conf = 'age',                           #age confound for LOESS and Centiles model
-                confounds = ['age','c(sex)','c(site)']) #multivarite confounds for GP model
-        #m.loess_normative_model()
-        m.centiles_normative_model()
-        #m.gp_normative_model()
-        m.gamlss_normative_model(mu='score ~ ps(age) + c(sex) + c(site)',sigma = '~ age',family='SHASHo2')
+        m.gamlss_normative_model(mu='score ~ ps(age) + c(sex) + c(site)',sigma = '~ ps(age)',family='SHASHo2',what='mu')
