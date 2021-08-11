@@ -26,6 +26,8 @@ class GAMLSS:
             Formula for tau parameter.
         rfamily: R object
             Family of distributions to use for fitting.
+        what: str
+            What parameter to predict, can be 'mu', 'sigma', 'nu' or 'tau'.
         model: R object
             Fitted gamlss model.
         """
@@ -53,6 +55,12 @@ class GAMLSS:
             Label of score in DataFrame.
         confounds: list, default=None
             List of labels of confounds in DataFrame.
+        
+        Notes
+        -----
+        If using 'random()' to model a random effect in any of the formulas, it must be passed a column of the dataframe with categorical values
+        as a factor: e.g. 'random(as.factor(COL))'. Using a random effect also impacts which parameter it is possible to predict i.e. set the 'what'
+        argument accordingly.
         """
         numpy2ri.activate()
         pandas2ri.activate()

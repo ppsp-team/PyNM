@@ -663,6 +663,12 @@ class PyNM:
             What parameter to predict, can be 'mu', 'sigma', 'nu' or 'tau'.
         lib_loc: str, default=None
             Path to location of installed GAMLSS package.
+        
+        Notes
+        -----
+        If using 'random()' to model a random effect in any of the formulas, it must be passed a column of the dataframe with categorical values
+        as a factor: e.g. 'random(as.factor(COL))'. Using a random effect also impacts which parameter it is possible to predict i.e. set the 'what'
+        argument accordingly.
         """
         try:
             from pynm.gamlss import GAMLSS
