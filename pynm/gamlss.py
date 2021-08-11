@@ -69,7 +69,6 @@ class GAMLSS:
             self.gamlss_data = importr('gamlss.data')
             self.gamlss_dist = importr('gamlss.dist')
             self.gamlss = importr('gamlss')
-            self.base = importr('base')
         else:
             self.gamlss_data = importr('gamlss.data',lib_loc=lib_loc)
             self.gamlss_dist = importr('gamlss.dist',lib_loc=lib_loc)

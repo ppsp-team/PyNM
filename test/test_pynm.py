@@ -1,5 +1,4 @@
 from pynm import pynm
-from pynm import gamlss 
 import numpy as np
 import pandas as pd
 import scipy.stats as sp
@@ -318,6 +317,8 @@ class TestApprox:
 
 class TestGAMLSS:
     def test_get_r_formulas(self):
+        from pynm import gamlss
+
         g = gamlss.GAMLSS(mu='score ~ 1')
         mu,_,_,_ = g._get_r_formulas('score ~ cs(age) + site',None,None,None)
         assert not isinstance(mu,str)
@@ -335,6 +336,8 @@ class TestGAMLSS:
         assert 'GAMLSS_pred' in m.data.columns
     
     def test_gamlss_invalid_init(self):
+        from pynm import gamlss
+        
         with pytest.raises(ValueError):
             gamlss.GAMLSS()
     
