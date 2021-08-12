@@ -5,6 +5,31 @@ from rpy2.robjects import numpy2ri
 from rpy2.robjects import pandas2ri
 from rpy2.robjects import r
 
+def _read_confounds(confounds):
+    """ Process input list of confounds.
+
+    Parameters
+    ----------
+    confounds : list of str
+        List of confounds with categorical variables indicated by c(var) ('c' must be lower case).
+
+    Returns
+    -------
+    list
+        List of all confounds without wrapper on categorical variables: c(var) -> var.
+    list
+        List of only categorical confounds without wrapper.
+    """
+    categorical = []
+    clean_confounds = []
+    for conf in confounds:
+        if ((conf[0:2] == 'c(') & (conf[-1] == ')')):
+            categorical.append(conf[2:-1])
+            clean_confounds.append(conf[2:-1])
+        else:
+            clean_confounds.append(conf)
+    return clean_confounds, categorical
+
 class GAMLSS:
     """Class for GAMLSS model.
         
@@ -89,7 +114,8 @@ class GAMLSS:
         Parameters
         ----------
         mu: str or None
-            Formula for mu (location) parameter of GAMLSS model. If None, formula for score is sum of confounds.
+            Formula for mu (location) parameter of GAMLSS model. If None, formula for score is sum of confounds
+            with non-categorical columns as smooth functions, e.g. "score ~ ps(age) + sex".
         sigma: str or None
             Formula for mu (location) parameter of GAMLSS model. If None, formula is '~ 1'.
         nu: str or None
@@ -112,7 +138,9 @@ class GAMLSS:
         if mu is None:
             if (self.score is None) or (self.confounds is None):
                 raise ValueError('If mu is None, both score and confounds must be provided i.e. not None.')
-            mu = '{} ~ {}'.format(self.score,' + '.join(self.confounds))
+            _,cat = _read_confounds(self.confounds)
+            formula_conf = ['ps({})'.format(conf) for conf in self.confounds if not conf[2:-1] in cat] + cat
+            mu = '{} ~ {}'.format(self.score,' + '.join(formula_conf))
         if sigma is None:
             sigma = '~ 1'
         if nu is None:

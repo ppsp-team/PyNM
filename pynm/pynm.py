@@ -83,8 +83,9 @@ class PyNM:
     conf: str
         Label of column from data with confound to use for LOESS and centiles models.
     confounds: list of str
-        List of labels of columns from data with confounds to use for 
-        GP model with categorical values denoted by c(var) ('c' must be lower case).
+        List of labels of columns from data with confounds. For GP model all confounds will be used,
+        for LOESS and Centiles models only the first is used. For GAMLSS all confounds are used
+        unless formulas are specified. Categorical values must be denoted by c(var) ('c' must be lower case).
     train_sample: str or float
         Which method to use for a training sample, can be 'controls' to use all the controls, 
         'manual' to be manually set, or a float in (0,1] for a percentage of controls.
@@ -122,7 +123,7 @@ class PyNM:
         Mean Standardized Log Loss of Gaussian Process normative model
     """
 
-    def __init__(self, data, score='score', group='group', conf='age', confounds=['age', 'c(sex)', 'c(site)'], train_sample='controls',
+    def __init__(self, data, score='score', group='group', confounds=['age', 'c(sex)', 'c(site)'], train_sample='controls',
                 min_conf=-1, max_conf=-1, min_score=-1, max_score=-1,bin_spacing=-1, bin_width=-1):
         """ Create a PyNM object.
 
@@ -135,11 +136,10 @@ class PyNM:
             Label of column from data with score (response variable).
         group : str, default='group'
             Label of column from data that encodes wether subjects are probands or controls.
-        conf: str, default='age'
-            Label of column from data with confound to use for LOESS and centiles models.
         confounds: list of str, default=['age', 'c(sex)', 'c(site)']
-            List of labels of columns from data with confounds to use for 
-            GP model with categorical values denoted by c(var) ('c' must be lower case).
+            List of labels of columns from data with confounds. For GP model all confounds will be used,
+            for LOESS and Centiles models only the first is used. For GAMLSS all confounds are used
+            unless formulas are specified. Categorical values must be denoted by c(var) ('c' must be lower case).
         train_sample: str or float, default='controls'
             Which method to use for a training sample, can be 'controls' to use all the controls, 
             'manual' to be manually set, or a float in (0,1] for a percentage of controls.
@@ -159,8 +159,8 @@ class PyNM:
         self.data = data.copy()
         self.score = score
         self.group = group
-        self.conf = conf
         self.confounds = confounds
+        self.conf = self.confounds[0]
         self.train_sample = train_sample
         self.CTR = None
         self.PROB = None
@@ -690,7 +690,7 @@ class PyNM:
 
             #TODO: test residuals?
 
-    def _plot(self, ax,kind=None,gp_xaxis=None):
+    def _plot(self, ax,kind=None,gp_xaxis=None,gamlss_xaxis=None):
         """ Plot the data with the normative model overlaid.
 
         Parameters
@@ -699,75 +699,101 @@ class PyNM:
             Axis on which to plot.
         kind: str, default=None
             Type of plot among "LOESS" (local polynomial), "Centiles", "GP" (gaussian processes), 
-            "all" (all the available models) or "None" (data points only). 
+            or "GAMLSS" (generalized additive models of location scale and shape). 
         gp_xaxis: str,default=None
             Which confound to use for xaxis of GP plot. If set to None, first confound in list passed to model will be used.
+        gamlss_xaxis: str,default=None
+            Which confound to use for xaxis of GAMLSS plot. If set to None, first confound in list passed to model will be used.
 
         Returns
         -------
         Axis
             handle for the matplotlib axis of the plot
         """
-
-        if kind == 'LOESS':
+        if kind is None:
+            sns.scatterplot(data=self.data, x=self.conf, y=self.score,
+                             hue=self.group, style=self.group,ax=ax)
+        elif kind == 'LOESS':
             sns.scatterplot(data=self.data, x=self.conf, y=self.score,
                              hue=self.group, style=self.group,ax=ax)
             ax.plot(self.bins, self.zm, '-k')
-            plt.fill_between(np.squeeze(self.bins),
-                             np.squeeze(self.zm) - 2 * np.squeeze(self.zstd),
-                             np.squeeze(self.zm) + 2 * np.squeeze(self.zstd),
-                             alpha=.2, fc='grey', ec='None', label='95% CI')
-        if kind == 'Centiles':
+            #plt.fill_between(np.squeeze(self.bins),
+            #                 np.squeeze(self.zm) - 2 * np.squeeze(self.zstd),
+            #                 np.squeeze(self.zm) + 2 * np.squeeze(self.zstd),
+            #                 alpha=.2, fc='grey', ec='None', label='95% CI')
+        elif kind == 'Centiles':
             sns.scatterplot(data=self.data, x=self.conf, y=self.score,
                                 hue=self.group, style=self.group,ax=ax)
             ax.plot(self.bins, self.z[:, 50], '--k')
-            plt.fill_between(np.squeeze(self.bins),
-                             np.squeeze(self.z[:, 5]),
-                             np.squeeze(self.z[:, 95]),
-                             alpha=.2, fc='grey', ec='None', label='95% CI')
-        if kind == 'GP':
+            #plt.fill_between(np.squeeze(self.bins),
+            #                 np.squeeze(self.z[:, 5]),
+            #                 np.squeeze(self.z[:, 95]),
+            #                 alpha=.2, fc='grey', ec='None', label='95% CI')
+        elif kind == 'GP':
             if gp_xaxis is None:
-                gp_xaxis = self.confounds[0]
+                gp_xaxis = self.conf
             sns.scatterplot(data=self.data, x=gp_xaxis, y=self.score,
                                 hue=self.group, style=self.group,ax=ax)
             tmp=self.data.sort_values(gp_xaxis)
-            plt.fill_between(np.squeeze(tmp[gp_xaxis]),
-                             np.squeeze(tmp['GP_pred']) - 2*np.squeeze(tmp['GP_sigma']),
-                             np.squeeze(tmp['GP_pred']) + 2*np.squeeze(tmp['GP_sigma']),
-                             alpha=.2, fc='grey', ec='None', label='95% CI')
+            #plt.fill_between(np.squeeze(tmp[gp_xaxis]),
+            #                 np.squeeze(tmp['GP_pred']) - 2*np.squeeze(tmp['GP_sigma']),
+            #                 np.squeeze(tmp['GP_pred']) + 2*np.squeeze(tmp['GP_sigma']),
+            #                 alpha=.2, fc='grey', ec='None', label='95% CI')
             ax.plot(tmp[gp_xaxis], tmp['GP_pred'], '.k')
+        elif kind == 'GAMLSS':
+            if gamlss_xaxis is None:
+                gamlss_xaxis = self.conf
+            sns.scatterplot(data=self.data, x=gamlss_xaxis, y=self.score,
+                                hue=self.group, style=self.group,ax=ax)
+            tmp=self.data.sort_values(gamlss_xaxis)
+            #plt.fill_between(np.squeeze(tmp[gp_xaxis]),
+            #                 np.squeeze(tmp['GP_pred']) - 2*np.squeeze(tmp['GP_sigma']),
+            #                 np.squeeze(tmp['GP_pred']) + 2*np.squeeze(tmp['GP_sigma']),
+            #                 alpha=.2, fc='grey', ec='None', label='95% CI')
+            ax.plot(tmp[gamlss_xaxis], tmp['GAMLSS_pred'], '.k')
         return ax
 
-    def plot(self, kind=None,gp_xaxis=None):
+    def plot(self, kind=None,gp_xaxis=None,gamlss_xaxis=None):
         """Plot the data with the normative model overlaid.
 
         Parameters
         ----------
-        kind: str, default=None
-            Type of plot among "LOESS" (local polynomial), "Centiles", "GP" (gaussian processes),
-            "all" (all the available models) or None (data points only).
+        kind: list, default=None
+            Type of plot, must be a valid subset of ["Centiles","LOESS","GP","GAMLSS"] or None. If None, all available
+            results will be plotted, if None are available a warning will be raised and only the data will be plotted.
         gp_xaxis: str,default=None
             Which confound to use for xaxis of GP plot. If set to None, first confound in list passed to model will be used.
+        gamlss_xaxis: str,default=None
+            Which confound to use for xaxis of GAMLSS plot. If set to None, first confound in list passed to model will be used.
+        
+        Raises
+        ------
+        ValueError
+            Plot kind not recognized, must be a valid subset of ["Centiles","LOESS","GP","GAMLSS"] or None.
         """
-
-        if kind in ['LOESS','Centiles','GP',None]:
-            fig, ax = plt.subplots(1,1)
-            self._plot(ax,kind,gp_xaxis=gp_xaxis)
-            if kind is None:
-                ax.set_title('Data')
-            else:
-                ax.set_title(kind)
-            plt.show()
-        elif kind == "all":
-            fig, ax = plt.subplots(1,3,figsize=(20,5))
-            for i,k in enumerate(['LOESS','Centiles','GP']):
-                self._plot(ax[i],kind=k,gp_xaxis=gp_xaxis)
+        if kind is None:
+            kind = []
+            for k in ['LOESS','Centiles','GP','GAMLSS']:
+                if '{}_pred'.format(k) in self.data.columns:
+                    kind.append(k)
+            if len(kind)==0:
+                warnings.warn('No model results found in data.')
+        
+        if set(kind).issubset(set(['LOESS','Centiles','GP','GAMLSS'])) and len(kind)>0:
+            fig, ax = plt.subplots(1,len(kind),figsize=(len(kind)*5,5))
+            for i,k in enumerate(kind):
+                self._plot(ax[i],kind=k,gp_xaxis=gp_xaxis,gamlss_xaxis=gamlss_xaxis)
                 ax[i].set_title(k)
             plt.show()
+        elif len(kind)==0:
+            fig, ax = plt.subplots(1,1)
+            self._plot(ax,None,gp_xaxis=gp_xaxis,gamlss_xaxis=gamlss_xaxis)
+            ax.set_title('Data')
+            plt.show()
         else:
-            raise ValueError('Plot kind not recognized, must be among "Centiles","LOESS","GP","all", None.')
+            raise ValueError('Plot kind not recognized, must be a valid subset of ["Centiles","LOESS","GP","GAMLSS"] or None.')
 
-    def _plot_res(self, ax,kind=None, confound='site'):
+    def _plot_res(self, ax,kind=None, confound=None):
         """ Plot the residuals of the normative model.
 
         Parameters
@@ -775,14 +801,10 @@ class PyNM:
         ax: matplotlib axis
             Axis on which to plot.
         kind: str, default=None
-            Type of plot among "LOESS" (local polynomial), "Centiles", "GP" (gaussian processes).
+            Type of plot among "LOESS" (local polynomial), "Centiles", "GP" (gaussian processes),
+            or "GAMLSS" (generalized additive models of location scale and shape).
         confound: str or None
             Which confound to use as xaxis of plot, must be categorical or None.
-
-        Returns
-        -------
-        Axis
-            handle for the matplotlib axis of the plot
         """
         if confound is None:
             confound = np.zeros(self.data.shape[0])
@@ -798,28 +820,44 @@ class PyNM:
             sns.violinplot(x=confound, y='GP_residuals',
                            data=self.data, split=True, palette='Blues', hue=self.group,ax=ax)
             ax.set_title(f"{kind} SMSE={np.round(self.SMSE_GP,3)} - MSLL={np.round(self.MSLL,3)}")
+        if kind == 'GAMLSS':
+            sns.violinplot(x=confound, y='GAMLSS_residuals',
+                           data=self.data, split=True, palette='Blues', hue=self.group,ax=ax)
+            #ax.set_title(f"{kind} SMSE={np.round(self.SMSE_GAMLSS,3)} - MSLL={np.round(self.MSLL,3)}")
+            ax.set_title(f"{kind}")
         if not isinstance(confound,str):
             ax.set_xticklabels([''])
-        return
 
-    def plot_res(self, kind='all', confound='site'):
+    def plot_res(self, kind=None, confound=None):
         """Plot the residuals of the normative model.
 
         Parameters
         ----------
-        kind: str, default=None
-            Type of plot among "LOESS" (local polynomial), "Centiles", "GP" (gaussian processes).
-        confound: str or None
+        kind: list default=None
+            Type of plot, must be a valid subset of ["Centiles","LOESS","GP","GAMLSS"] or None. If None, all available
+            results will be plotted, if None are available a ValueError will be raised.
+        confound: str, default=None
             Which confound to use as xaxis of plot, must be categorical or None.
+        
+        Raises
+        ------
+        ValueError
+            Plot kind not recognized, must be a valid subset of ["Centiles","LOESS","GP","GAMLSS"] or None.
+        ValueError
+            No model results found in data.
         """
-        if kind in ['LOESS','Centiles','GP']:
-            fig, ax = plt.subplots(1,1)
-            self._plot_res(ax,kind,confound=confound)
-            plt.show()
-        elif kind == "all":
-            fig, ax = plt.subplots(1,3,figsize=(20,5))
-            for i,k in enumerate(['LOESS','Centiles','GP']):
+        if kind is None:
+            kind = []
+            for k in ['LOESS','Centiles','GP','GAMLSS']:
+                if '{}_pred'.format(k) in self.data.columns:
+                    kind.append(k)
+            if len(kind)==0:
+                raise ValueError('No model results found in data.')
+        
+        if set(kind).issubset(set(['LOESS','Centiles','GP','GAMLSS'])):
+            fig, ax = plt.subplots(1,len(kind),figsize=(len(kind)*5,5))
+            for i,k in enumerate(kind):
                 self._plot_res(ax[i],kind=k,confound=confound)
             plt.show()
         else:
-            raise ValueError('Plot kind not recognized, must be among "Centiles","LOESS","GP","all".')
+            raise ValueError('Plot kind not recognized, must be a valid subset of ["Centiles","LOESS","GP","GAMLSS"] or None.')
