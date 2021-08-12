@@ -2,11 +2,9 @@ language: python
 python:
   - "3.6"
   - "3.7"
-before_install:
-  - sudo apt-get update
 # command to install dependencies
 install:
-  - pip install -r requirements.txt
+#  - pip install -r requirements.txt #(should work from install_requires)
   - pip install pytest
 # command to run tests
 script:
