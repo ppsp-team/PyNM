@@ -1,10 +1,9 @@
-import pynm.pynm as pynm
+from pynm import pynm
 import numpy as np
 import pandas as pd
 import scipy.stats as sp
 import math
 import pytest
-
 
 def model(age, sex, offset):
     noise = np.random.normal(0, 0.1)
@@ -80,7 +79,7 @@ def dataset_het(low=1,high=100,n_subs=1000,sampling='full'):
 
 class TestBasic:
     def test_read_confounds_some_categorical(self):
-        conf = ['a', 'b', 'C(c)']
+        conf = ['a', 'b', 'c(c)']
         clean, cat = pynm._read_confounds(conf)
         assert clean == ['a', 'b', 'c']
         assert cat == ['c']
@@ -92,7 +91,7 @@ class TestBasic:
         assert cat == []
 
     def test_read_confounds_all_categorical(self):
-        conf = ['C(a)', 'C(b)', 'C(c)']
+        conf = ['c(a)', 'c(b)', 'c(c)']
         clean, cat = pynm._read_confounds(conf)
         assert clean == ['a', 'b', 'c']
         assert cat == ['a', 'b', 'c']
@@ -315,3 +314,55 @@ class TestApprox:
 
         assert 'GP_pred' in m.data.columns
         assert math.isclose(0, m.data['GP_residuals'].mean(), abs_tol=0.5)
+
+class TestGAMLSS:
+    def test_get_r_formulas(self):
+        from pynm import gamlss
+
+        g = gamlss.GAMLSS(mu='score ~ 1')
+        mu,_,_,_ = g._get_r_formulas('score ~ cs(age) + site',None,None,None)
+        assert not isinstance(mu,str)
+
+    def test_gamlss(self):
+        data = generate_data(sample_size=4, n_sites=2, randseed=3)
+        m = pynm.PyNM(data)
+        m.gamlss_normative_model(mu='score ~ cs(age)',sigma='~ age + site',tau='~ c(sex)')
+        assert 'GAMLSS_pred' in m.data.columns
+    
+    def test_gamlss_default_formulas(self):
+        data = generate_data(sample_size=4, n_sites=2, randseed=3)
+        m = pynm.PyNM(data)
+        m.gamlss_normative_model()
+        assert 'GAMLSS_pred' in m.data.columns
+    
+    def test_gamlss_invalid_init(self):
+        from pynm import gamlss
+        
+        with pytest.raises(ValueError):
+            gamlss.GAMLSS()
+    
+    def test_gamlss_nan_issue(self):
+        df = generate_data(n_sites=4,sample_size=35,randseed=650)
+        #Initialize pynm w/ data and confounds
+        m = pynm.PyNM(df,'score','group',
+                conf = 'age',                           #age confound for LOESS and Centiles model
+                confounds = ['age','c(sex)','c(site)']) #multivarite confounds for GP model
+        m.loess_normative_model()
+        m.centiles_normative_model()
+        m.gamlss_normative_model(mu='score ~ ps(age) + c(sex) + c(site)',sigma = '~ age',family='SHASHo2')
+
+    def test_gamlss_random_effect(self):
+        df = generate_data(n_sites=4,sample_size=35,randseed=650)
+        #Initialize pynm w/ data and confounds
+        m = pynm.PyNM(df,'score','group',
+                conf = 'age',                           #age confound for LOESS and Centiles model
+                confounds = ['age','c(sex)','c(site)']) #multivarite confounds for GP model
+        m.gamlss_normative_model(mu='score ~ ps(age) + c(sex) + random(as.factor(site))',sigma = '~ ps(age)',family='SHASHo2',what='sigma')
+    
+    def test_gamlss_what_mu(self):
+        df = generate_data(n_sites=4,sample_size=35,randseed=650)
+        #Initialize pynm w/ data and confounds
+        m = pynm.PyNM(df,'score','group',
+                conf = 'age',                           #age confound for LOESS and Centiles model
+                confounds = ['age','c(sex)','c(site)']) #multivarite confounds for GP model
+        m.gamlss_normative_model(mu='score ~ ps(age) + c(sex) + c(site)',sigma = '~ ps(age)',family='SHASHo2',what='mu')

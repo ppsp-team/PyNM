@@ -25,6 +25,7 @@ import numpy as np
 import warnings
 import matplotlib.pyplot as plt
 import seaborn as sns
+import warnings
 
 import statsmodels.api as sm
 from statsmodels.sandbox.regression.predstd import wls_prediction_std
@@ -43,19 +44,19 @@ def _read_confounds(confounds):
     Parameters
     ----------
     confounds : list of str
-        List of confounds with categorical variables indicated by C(var).
+        List of confounds with categorical variables indicated by c(var) ('c' must be lower case).
 
     Returns
     -------
     list
-        List of all confounds without wrapper on categorical variables: C(var) -> var.
+        List of all confounds without wrapper on categorical variables: c(var) -> var.
     list
         List of only categorical confounds without wrapper.
     """
     categorical = []
     clean_confounds = []
     for conf in confounds:
-        if ((conf[0:2] == 'C(') & (conf[-1] == ')')):
+        if ((conf[0:2] == 'c(') & (conf[-1] == ')')):
             categorical.append(conf[2:-1])
             clean_confounds.append(conf[2:-1])
         else:
@@ -83,7 +84,7 @@ class PyNM:
         Label of column from data with confound to use for LOESS and centiles models.
     confounds: list of str
         List of labels of columns from data with confounds to use for 
-        GP model with categorical values denoted by C(var).
+        GP model with categorical values denoted by c(var) ('c' must be lower case).
     train_sample: str or float
         Which method to use for a training sample, can be 'controls' to use all the controls, 
         'manual' to be manually set, or a float in (0,1] for a percentage of controls.
@@ -121,7 +122,7 @@ class PyNM:
         Mean Standardized Log Loss of Gaussian Process normative model
     """
 
-    def __init__(self, data, score='score', group='group', conf='age', confounds=['age', 'C(sex)', 'C(site)'], train_sample='controls',
+    def __init__(self, data, score='score', group='group', conf='age', confounds=['age', 'c(sex)', 'c(site)'], train_sample='controls',
                 min_conf=-1, max_conf=-1, min_score=-1, max_score=-1,bin_spacing=-1, bin_width=-1):
         """ Create a PyNM object.
 
@@ -136,9 +137,9 @@ class PyNM:
             Label of column from data that encodes wether subjects are probands or controls.
         conf: str, default='age'
             Label of column from data with confound to use for LOESS and centiles models.
-        confounds: list of str, default=['age', 'C(sex)', 'C(site)']
+        confounds: list of str, default=['age', 'c(sex)', 'c(site)']
             List of labels of columns from data with confounds to use for 
-            GP model with categorical values denoted by C(var).
+            GP model with categorical values denoted by c(var) ('c' must be lower case).
         train_sample: str or float, default='controls'
             Which method to use for a training sample, can be 'controls' to use all the controls, 
             'manual' to be manually set, or a float in (0,1] for a percentage of controls.
@@ -193,7 +194,7 @@ class PyNM:
         """
         ctr_idx = self.data[self.data[self.group] == self.CTR].index.tolist()
         n_ctr = len(ctr_idx)
-        n_ctr_train = max(int(train_size*n_ctr), 1)  # make this minimum 2?
+        n_ctr_train = max(int(train_size*n_ctr), 1)  #TODO: make this minimum 2?
 
         np.random.seed(1)
         ctr_idx_train = np.array(np.random.choice(ctr_idx, size=n_ctr_train, replace=False))
@@ -431,7 +432,6 @@ class PyNM:
         dists = [np.abs(conf - self.bins) for conf in self.data[self.conf]]
         idx = [np.argmin(d) for d in dists]
         centiles = np.array([self.z[i] for i in idx])
-
         result = np.zeros(centiles.shape[0])
         max_mask = self.data[self.score] >= np.max(centiles, axis=1)
         min_mask = self.data[self.score] < np.min(centiles, axis=1)
@@ -542,7 +542,7 @@ class PyNM:
             Number of epochs (passes through entire dataset) to train SVGP for.
         """
         # get proband and control masks
-        ctr_mask, prob_mask = self._get_masks()
+        ctr_mask, _ = self._get_masks()
 
         # get matrix of confounds
         conf_mat = self._get_conf_mat()
@@ -643,6 +643,52 @@ class PyNM:
             self.data['GP_sigma'] = sigma.numpy()
             self.data['GP_residuals'] = residuals
             return svgp.loss
+    
+    def gamlss_normative_model(self,mu=None,sigma=None,nu=None,tau=None,family='SHASHo2',what='mu',lib_loc=None):
+        """Compute GAMLSS normative model.
+        
+        Parameters
+        ----------
+        mu: str, default=None
+            Formula for mu (location) parameter.
+        sigma: str, default=None
+            Formula for sigma (shape) parameter.
+        nu: str, default=None
+            Formula for nu parameter.
+        tau: str, default=None
+            Formula for tau parameter.
+        family: str,default='SHASHo2'
+            Family of distributions to use for fitting, default is 'SHASHo2'. See R documentation for GAMLSS package for other available families of distributions.
+        what: str, default='mu'
+            What parameter to predict, can be 'mu', 'sigma', 'nu' or 'tau'.
+        lib_loc: str, default=None
+            Path to location of installed GAMLSS package.
+        
+        Notes
+        -----
+        If using 'random()' to model a random effect in any of the formulas, it must be passed a column of the dataframe with categorical values
+        as a factor: e.g. 'random(as.factor(COL))'. Using a random effect also impacts which parameter it is possible to predict i.e. set the 'what'
+        argument accordingly.
+        """
+        try:
+            from pynm.gamlss import GAMLSS
+        except:
+            raise ImportError("R and the GAMLSS package must be installed to use GAMLSS model, see documentation for installation help.")
+        else:
+            # get proband and control masks
+            ctr_mask, _ = self._get_masks()
+
+            gamlss = GAMLSS(mu=mu,sigma=sigma,nu=nu,tau=tau,family=family,what=what,lib_loc=lib_loc,score=self.score,confounds=self.confounds)
+            #TODO: more graceful fix for this problem
+            nan_cols = ['LOESS_pred','LOESS_residuals','LOESS_rank','Centiles_pred','Centiles_residuals','Centiles','Centiles_rank']
+            gamlss_data = self.data[[c for c in self.data.columns if c not in nan_cols]]
+            gamlss.fit(gamlss_data[ctr_mask])
+            res = gamlss.predict(gamlss_data)
+
+            self.data['GAMLSS_pred'] = res
+            self.data['GAMLSS_residuals'] = self.data[self.score] - self.data['GAMLSS_pred']
+
+            #TODO: test residuals?
 
     def _plot(self, ax,kind=None,gp_xaxis=None):
         """ Plot the data with the normative model overlaid.
