@@ -8,21 +8,33 @@ For a more advanced implementation, see the Python librairie [PCNtoolkit](https:
 
 ## Installation
 
-To install pynm:
+**Minimal Installation**
+
+If you have relatively small dataset, or are only using the exact GP, LOESS and/or Centiles models.
 
 ```bash
 $ pip install pynm
 ```
+**Installation with PyTorch**
 
-Alternatively, for development purposes, clone this repository and run:
-
+If you have a large dataset, or are using the approximate GP model.
 ```bash
-$ git clone https://github.com/ppsp-team/PyNM
-$ cd PyNM
-$ python setup.py develop
+$ pip install -r requirements.txt
+$ pip install pynm
 ```
+**Installation with R**
 
-All code for PyNM is written in Python (Python>=3.5). See [requirements.txt](https://github.com/ppsp-team/PyNM/blob/master/requirements.txt) for a full list of dependencies.
+*More detailed installation instructions to come.*
+
+If you are using a GAMLSS.
+- Must first have R installed and packages:
+     - gamlss
+     - gamlss.dist
+     - gamlss.data
+```bash
+$ pip install -r requirements.txt
+$ pip install pynm
+```
 
 ## Command Line Usage
 ```
@@ -116,7 +128,7 @@ In order to avoid contaminating the test set, in a prediction setting it is impo
 Both the Centiles and LOESS models are non parametric models based local approximations. They accept only a single dependent variable, passed using the `conf` option.
 
 ### Gaussian Process Model
-Gaussian Process Regression (GPR), which underpins the Gaussian Process Model, can accept an arbitrary number of dependent variables passed using the `confounds` option. 
+Gaussian Process Regression (GPR), which underpins the Gaussian Process Model, can accept an arbitrary number of dependent variables passed using the `confounds` option. Note: in order for GPR to be effective, the data must be homoskedastic. For a full discussion see [this paper](https://www.biorxiv.org/content/10.1101/2021.05.11.443565v1.full).
 
 GPR is very intensive on both memory and time usage. In order to have a scaleable method, we've implemented both an exact model for smaller datasets and an approximate method, recommended for datasets over ~1000 subjects. The method can be specified using the `method` option, it defaults to `auto` in which the approxiamte model will be chosen for datasets over 1000.
 
@@ -126,22 +138,32 @@ The exact model implements [scikit-learn](https://scikit-learn.org/stable/index.
 #### Approximate Model
 The approximate model implements a Stochastic Variational Gaussian Process (SVGP) model using [GPytorch](https://gpytorch.ai/), with a kernel closely matching the one in the exact model. SVGP is a deep learning technique that needs to be trained on minibatches for a set number of epochs, this can be tuned with the parameters `batch_size` and `num_epoch`. The model speeds up computation by using a subset of the data as inducing points, this can be controlled with the parameter `n_inducing` that defines how many points to use. See [documentation](https://docs.gpytorch.ai/en/v1.1.1/examples/04_Variational_and_Approximate_GPs/SVGP_Regression_CUDA.html) for an overview.
 
+### GAMLSS
+Generalized Additive Models of Location Shape and Scale (GAMLSS) are a flexible modeling framework that can model heteroskedasticity, non-linear effects of variables, and hierarchical structure of the data. The implementation here is a python wrapper for the R package gamlss, formulas for each parameter must be specified using functions available in the package (see [documentation](https://cran.r-project.org/web/packages/gamlss/index.html)). For a full discussion of using GAMLSS for normative modeling see [this paper](https://doi.org/10.1101/2021.06.14.448106).
+
 ## References
 
 Original papers with Gaussian Processes (GP):
-- Marquand et al. Biological Psychiatry 2016 ([doi:10.1016/j.biopsych.2015.12.023](https://doi.org/10.1016/j.biopsych.2015.12.023))
-- Marquand et al. Molecular Psychiatry 2019 ([doi:10.1038/s41380-019-0441-1](https://doi.org/10.1038/s41380-019-0441-1))
+- Marquand et al. Biological Psychiatry 2016 [doi:10.1016/j.biopsych.2015.12.023](https://doi.org/10.1016/j.biopsych.2015.12.023)
+- Marquand et al. Molecular Psychiatry 2019 [doi:10.1038/s41380-019-0441-1](https://doi.org/10.1038/s41380-019-0441-1)
+
+For limitations of Gaussian Proccesses:
+- Xu et al. [https://www.biorxiv.org/content/10.1101/2021.05.11.443565v1.full](https://www.biorxiv.org/content/10.1101/2021.05.11.443565v1.full)
 
 Example of use of the LOESS approach:
-- Lefebvre et al. Front. Neurosci. 2018 ([doi:10.3389/fnins.2018.00662](https://doi.org/10.3389/fnins.2018.00662))
-- Maruani et al. Front. Psychiatry 2019 ([doi:10.3389/fpsyt.2019.00011](https://doi.org/10.3389/fpsyt.2019.00011))
+- Lefebvre et al. Front. Neurosci. 2018 [doi:10.3389/fnins.2018.00662](https://doi.org/10.3389/fnins.2018.00662)
+- Maruani et al. Front. Psychiatry 2019 [doi:10.3389/fpsyt.2019.00011](https://doi.org/10.3389/fpsyt.2019.00011)
 
 For the Centiles approach see:
-- Bethlehem et al. Communications Biology 2020 ([doi:10.1038/s42003-020-01212-9](https://doi.org/10.1038/s42003-020-01212-9))
+- Bethlehem et al. Communications Biology 2020 [doi:10.1038/s42003-020-01212-9](https://doi.org/10.1038/s42003-020-01212-9)
 - R implementation [here](https://github.com/rb643/Normative_modeling).
 
 For the SVGP model see:
 - Hensman et al. [https://arxiv.org/pdf/1411.2005.pdf](https://arxiv.org/pdf/1411.2005.pdf)
+
+For GAMLSS see:
+- Dinga et al. [https://doi.org/10.1101/2021.06.14.448106](https://doi.org/10.1101/2021.06.14.448106)
+- R documentation [https://cran.r-project.org/web/packages/gamlss/index.html](https://cran.r-project.org/web/packages/gamlss/index.html)
 
 ## How to report errors
 
