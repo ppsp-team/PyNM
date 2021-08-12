@@ -21,7 +21,7 @@ setup(
         'console_scripts': [
             'pynm = pynm.cli:main',
         ],
-    }
+    },
    install_requires=[
         'matplotlib >= 3.3.4',
         'numpy >= 1.18.5',
@@ -31,5 +31,5 @@ setup(
         'seaborn >= 0.11.1',
         'statsmodels >= 0.12.2',
         'tqdm == 4.59.0'
-   ]
+   ],
 )
