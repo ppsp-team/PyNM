@@ -22,4 +22,14 @@ setup(
             'pynm = pynm.cli:main',
         ],
     }
+   install_requires=[
+        'matplotlib >= 3.3.4',
+        'numpy >= 1.18.5',
+        'pandas >= 1.1.5',
+        'scikit_learn >= 0.24.1',
+        'scipy >= 1.5.3',
+        'seaborn >= 0.11.1',
+        'statsmodels >= 0.12.2',
+        'tqdm == 4.59.0'
+   ]
 )
