@@ -40,7 +40,8 @@ $ pip install pynm
 ```
 usage: pynm [-h] --pheno_p PHENO_P --out_p OUT_P [--confounds CONFOUNDS]
             [--score SCORE] [--group GROUP] [--train_sample TRAIN_SAMPLE]
-            [--LOESS] [--centiles] [--GP] [--gp_method GP_METHOD]
+            [--LOESS] [--centiles] [--bin_spacing BIN_SPACING]
+            [--bin_width BIN_WIDTH] [--GP] [--gp_method GP_METHOD]
             [--gp_num_epochs GP_NUM_EPOCHS] [--gp_n_inducing GP_N_INDUCING]
             [--gp_batch_size GP_BATCH_SIZE]
             [--gp_length_scale GP_LENGTH_SCALE] [--gp_nu NU] [--GAMLSS]
@@ -77,6 +78,10 @@ optional arguments:
                         'controls'.
   --LOESS               Flag to run LOESS model.
   --centiles            Flag to run Centiles model.
+  --bin_spacing BIN_SPACING
+                        Distance between bins for LOESS & centiles models.
+  --bin_width BIN_WIDTH
+                        Width of bins for LOESS & centiles models.
   --GP                  Flag to run Gaussian Process model.
   --gp_method GP_METHOD
                         Method to use for the GP model. Can be set to
