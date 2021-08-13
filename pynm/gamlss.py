@@ -63,13 +63,14 @@ class GAMLSS:
         Parameters
         ----------
         mu: str, default=None
-            Formula for mu (location) parameter. If None, formula for score is sum of confounds (must have both score and confounds not None).
+            Formula for mu (location) parameter of GAMLSS. If None, formula for score is sum of confounds
+            with non-categorical columns as smooth functions, e.g. "score ~ ps(age) + sex".
         sigma: str, default=None
-            Formula for sigma (shape) parameter. If None, formula is '~ 1'.
+            Formula for sigma (shape) parameter of GAMLSS. If None, formula is '~ 1'.
         nu: str, default=None
-            Formula for nu parameter. If None, formula is '~ 1'.
+            Formula for nu parameter of GAMLSS. If None, formula is '~ 1'.
         tau: str, default=None
-            Formula for tau parameter. If None, formula is '~ 1'.
+            Formula for tau parameter of GAMLSS. If None, formula is '~ 1'.
         family: str,default='SHASHo2'
             Family of distributions to use for fitting, default is 'SHASHo2'. See R documentation for GAMLSS package for other available families of distributions.
         what: str, default='mu'
@@ -114,14 +115,14 @@ class GAMLSS:
         Parameters
         ----------
         mu: str or None
-            Formula for mu (location) parameter of GAMLSS model. If None, formula for score is sum of confounds
+            Formula for mu (location) parameter of GAMLSS. If None, formula for score is sum of confounds
             with non-categorical columns as smooth functions, e.g. "score ~ ps(age) + sex".
         sigma: str or None
-            Formula for mu (location) parameter of GAMLSS model. If None, formula is '~ 1'.
+            Formula for mu (location) parameter of GAMLSS. If None, formula is '~ 1'.
         nu: str or None
-            Formula for mu (location) parameter of GAMLSS model. If None, formula is '~ 1'.
+            Formula for mu (location) parameter of GAMLSS. If None, formula is '~ 1'.
         tau: str or None
-            Formula for mu (location) parameter of GAMLSS model. If None, formula is '~ 1'.
+            Formula for mu (location) parameter of GAMLSS. If None, formula is '~ 1'.
 
         Raises
         ------

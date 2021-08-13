@@ -649,14 +649,15 @@ class PyNM:
         
         Parameters
         ----------
-        mu: str, default=None
-            Formula for mu (location) parameter.
-        sigma: str, default=None
-            Formula for sigma (shape) parameter.
-        nu: str, default=None
-            Formula for nu parameter.
-        tau: str, default=None
-            Formula for tau parameter.
+        mu: str or None
+            Formula for mu (location) parameter of GAMLSS. If None, formula for score is sum of confounds
+            with non-categorical columns as smooth functions, e.g. "score ~ ps(age) + sex".
+        sigma: str or None
+            Formula for mu (location) parameter of GAMLSS. If None, formula is '~ 1'.
+        nu: str or None
+            Formula for mu (location) parameter of GAMLSS. If None, formula is '~ 1'.
+        tau: str or None
+            Formula for mu (location) parameter of GAMLSS. If None, formula is '~ 1'.
         family: str,default='SHASHo2'
             Family of distributions to use for fitting, default is 'SHASHo2'. See R documentation for GAMLSS package for other available families of distributions.
         what: str, default='mu'
