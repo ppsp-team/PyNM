@@ -108,10 +108,12 @@ class PyNM:
     SMSE_LOESS: float
         Mean Square Error of LOESS normative model
     SMSE_Centiles: float
-        Median Square Error of Centiles normative model
+        Mean Square Error of Centiles normative model
     SMSE_GP: float
         Mean Square Error of Gaussian Process normative model
-    MSLL: float
+    SMSE_GAMLSS: float
+        Mean Square Error of GAMLSS
+    MSLL_GP: float
         Mean Standardized Log Loss of Gaussian Process normative model
     """
 
@@ -159,7 +161,8 @@ class PyNM:
         self.SMSE_LOESS = None
         self.SMSE_Centiles = None
         self.SMSE_GP = None
-        self.MSLL = None
+        self.SMSE_GAMLSS = None
+        self.MSLL_GP = None
 
         self._set_group_names()
         self._set_group()
@@ -553,7 +556,7 @@ class PyNM:
                    (y_true - np.mean(score[ctr_mask]))**2 /
                    (2 * np.std(score[ctr_mask])) )
 
-            self.MSLL = np.mean(SLL)
+            self.MSLL_GP = np.mean(SLL)
 
             self.data['GP_pred'] = y_pred
             self.data['GP_sigma'] = sigma
@@ -612,7 +615,7 @@ class PyNM:
                    (y_true - np.mean(score[ctr_mask]))**2 /
                    (2 * np.std(score[ctr_mask])) )
 
-            self.MSLL = np.mean(SLL)
+            self.MSLL_GP = np.mean(SLL)
 
             self.data['GP_pred'] = y_pred
             self.data['GP_sigma'] = sigma.numpy()
@@ -655,7 +658,6 @@ class PyNM:
             ctr_mask, _ = self._get_masks()
 
             gamlss = GAMLSS(mu=mu,sigma=sigma,nu=nu,tau=tau,family=family,what=what,lib_loc=lib_loc,score=self.score,confounds=self.confounds)
-            #TODO: more graceful fix for this problem
             nan_cols = ['LOESS_pred','LOESS_residuals','LOESS_rank','Centiles_pred','Centiles_residuals','Centiles','Centiles_rank']
             gamlss_data = self.data[[c for c in self.data.columns if c not in nan_cols]]
             gamlss.fit(gamlss_data[ctr_mask])
@@ -663,6 +665,7 @@ class PyNM:
 
             self.data['GAMLSS_pred'] = res
             self.data['GAMLSS_residuals'] = self.data[self.score] - self.data['GAMLSS_pred']
+            self.SMSE_GAMLSS = (np.mean(self.data[self.score][ctr_mask] - self.data['GAMLSS_pred'][ctr_mask])**2)**0.5 / np.std(self.data[self.score][ctr_mask])
 
             #TODO: test residuals?
 
@@ -799,12 +802,11 @@ class PyNM:
         if kind == 'GP':
             sns.violinplot(x=confound, y='GP_residuals',
                            data=self.data, split=True, palette='Blues', hue=self.group,ax=ax)
-            ax.set_title(f"{kind} SMSE={np.round(self.SMSE_GP,3)} - MSLL={np.round(self.MSLL,3)}")
+            ax.set_title(f"{kind} SMSE={np.round(self.SMSE_GP,3)} - MSLL={np.round(self.MSLL_GP,3)}")
         if kind == 'GAMLSS':
             sns.violinplot(x=confound, y='GAMLSS_residuals',
                            data=self.data, split=True, palette='Blues', hue=self.group,ax=ax)
-            #ax.set_title(f"{kind} SMSE={np.round(self.SMSE_GAMLSS,3)} - MSLL={np.round(self.MSLL,3)}")
-            ax.set_title(f"{kind}")
+            ax.set_title(f"{kind} SMSE={np.round(self.SMSE_GAMLSS,3)}")
         if not isinstance(confound,str):
             ax.set_xticklabels([''])
 

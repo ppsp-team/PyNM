@@ -329,6 +329,11 @@ class TestGAMLSS:
         m.gamlss_normative_model(mu='score ~ cs(age)',sigma='~ age + site',tau='~ c(sex)')
         assert 'GAMLSS_pred' in m.data.columns
     
+    def test_gamlss_smse(self):
+        data = generate_data(sample_size=4, n_sites=2, randseed=3)
+        m = pynm.PyNM(data)
+        m.gamlss_normative_model(mu='score ~ cs(age)',sigma='~ age + site',tau='~ c(sex)')
+        assert m.SMSE_GAMLSS > 0
     
     def test_gamlss_default_formulas(self):
         data = generate_data(sample_size=4, n_sites=2, randseed=3)
