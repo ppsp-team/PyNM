@@ -89,14 +89,6 @@ class PyNM:
     train_sample: str or float
         Which method to use for a training sample, can be 'controls' to use all the controls, 
         'manual' to be manually set, or a float in (0,1] for a percentage of controls.
-    min_conf: int
-        Minimum conf for LOESS & centiles models.
-    max_conf: int
-        Maximum conf for LOESS & centiles models.
-    min_score: int
-        Minimum score for LOESS & centiles models.
-    max_score: int
-        Maximum score for LOESS & centiles models.
     bin_spacing: int
         Distance between bins for LOESS & centiles models.
     bin_width: float
@@ -124,7 +116,7 @@ class PyNM:
     """
 
     def __init__(self, data, score='score', group='group', confounds=['age', 'c(sex)', 'c(site)'], train_sample='controls',
-                min_conf=-1, max_conf=-1, min_score=-1, max_score=-1,bin_spacing=-1, bin_width=-1):
+                bin_spacing=-1, bin_width=-1):
         """ Create a PyNM object.
 
         Parameters
@@ -143,14 +135,6 @@ class PyNM:
         train_sample: str or float, default='controls'
             Which method to use for a training sample, can be 'controls' to use all the controls, 
             'manual' to be manually set, or a float in (0,1] for a percentage of controls.
-        min_conf: int, default=-1
-            Minimum conf for LOESS & centiles models.
-        max_conf: int, default=-1
-            Maximum conf for LOESS & centiles models.
-        min_score: int, default=-1
-            Minimum score for LOESS & centiles models.
-        max_score: int, default=-1
-            Maximum score for LOESS & centiles models.
         bin_spacing: int, default=-1
             Distance between bins for LOESS & centiles models.
         bin_width: float, default=-1
@@ -164,10 +148,6 @@ class PyNM:
         self.train_sample = train_sample
         self.CTR = None
         self.PROB = None
-        self.min_conf = min_conf
-        self.max_conf = max_conf
-        self.min_score = min_score
-        self.max_score = max_score
         self.bin_spacing = bin_spacing
         self.bin_width = bin_width
         self.bins = None
@@ -288,22 +268,16 @@ class PyNM:
         array
             Bins for the centiles and LOESS models.
         """
-        if self.min_conf == -1:
-            self.min_conf = self.data[self.conf].min()
-        if self.max_conf == -1:
-            self.max_conf = self.data[self.conf].max()
-        if self.min_score == -1:
-            self.min_score = self.data[self.score].min()
-        if self.max_score == -1:
-            self.max_score = self.data[self.score].max()
+        min_conf = self.data[self.conf].min()
+        max_conf = self.data[self.conf].max()
 
         if self.bin_width == -1:
-            self.bin_width = (self.max_conf - self.min_conf)/100
+            self.bin_width = (max_conf - min_conf)/100
         if self.bin_spacing == -1:
-            self.bin_spacing = (self.max_conf - self.min_conf)/10
+            self.bin_spacing = (max_conf - min_conf)/10
 
         # define the bins (according to width)
-        self.bins = np.arange(self.min_conf, self.max_conf + self.bin_width, self.bin_spacing)
+        self.bins = np.arange(min_conf, max_conf + self.bin_width, self.bin_spacing)
         return self.bins
 
     def bins_num(self):
