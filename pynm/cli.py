@@ -35,6 +35,10 @@ def _cli_parser():
                         help="Flag to run LOESS model.")
     parser.add_argument("--centiles",dest='centiles',action='store_true',
                         help="Flag to run Centiles model.")
+    parser.add_argument("--bin_spacing",default = -1,dest='bin_spacing',
+                        help="Distance between bins for LOESS & centiles models.")
+    parser.add_argument("--bin_width",default = -1,dest='bin_width',
+                        help="Width of bins for LOESS & centiles models.")
     parser.add_argument("--GP",dest='GP',action='store_true',
                         help="Flag to run Gaussian Process model.")
     parser.add_argument("--gp_method",default = 'auto',dest='gp_method',
@@ -89,16 +93,16 @@ def main():
     confounds = params['confounds'].split(',')            
     data = pd.read_csv(params['pheno_p'])
     
-    m = pynm.PyNM(data,params['score'],params['group'],params['conf'],confounds,params['train_sample'])
-    
-    #Add a column to data w/ number controls used in this bin
-    m.bins_num()
+    m = pynm.PyNM(data,params['score'],params['group'],params['conf'],confounds,params['train_sample'],
+                bin_spacing=params['bin_spacing'], bin_width=params['bin_width'])
     
     #Run models
     if params['LOESS']:
         m.loess_normative_model()
+        m.bins_num()
     if params['centiles']:
         m.centiles_normative_model()
+        m.bins_num()
     if params['GP']:   
         m.gp_normative_model(length_scale=params['gp_length_scale'],nu=params['gp_nu'], 
                         method=params['gp_method'],batch_size=params['gp_batch_size'],
