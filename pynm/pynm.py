@@ -354,9 +354,9 @@ class PyNM:
         idx = [np.argmin(d) for d in dists]
         m = np.array([self.zm[i] for i in idx])
         std = np.array([self.zstd[i] for i in idx])
-        #nmodel = (self.data[self.score] - m) / std
-        #self.data['LOESS_pred'] = nmodel
-        self.data['LOESS_pred'] = m
+        nmodel = (self.data[self.score] - m) / std
+        self.data['LOESS_pred'] = nmodel
+        #self.data['LOESS_pred'] = m
         self.data['LOESS_residuals'] = self.data[self.score] - self.data['LOESS_pred']
 
         score = self._get_score()
@@ -692,9 +692,9 @@ class PyNM:
         elif kind == 'LOESS':
             sns.scatterplot(data=self.data, x=self.conf, y=self.score,
                              hue=self.group, style=self.group,ax=ax)
-            tmp=self.data.sort_values(self.conf)
-            #ax.plot(self.bins, self.zm, '-k')
-            ax.plot(tmp[self.conf], tmp['LOESS_pred'], '-k')
+            #tmp=self.data.sort_values(self.conf)
+            ax.plot(self.bins, self.zm, '-k')
+            #ax.plot(tmp[self.conf], tmp['LOESS_pred'], '-k')
             #plt.fill_between(np.squeeze(self.bins),
             #                 np.squeeze(self.zm) - 2 * np.squeeze(self.zstd),
             #                 np.squeeze(self.zm) + 2 * np.squeeze(self.zstd),
@@ -702,9 +702,9 @@ class PyNM:
         elif kind == 'Centiles':
             sns.scatterplot(data=self.data, x=self.conf, y=self.score,
                                 hue=self.group, style=self.group,ax=ax)
-            tmp=self.data.sort_values(self.conf)
-            #ax.plot(self.bins, self.z[:, 50], '--k')
-            ax.plot(tmp[self.conf], tmp['LOESS_pred'], '-k')
+            #tmp=self.data.sort_values(self.conf)
+            ax.plot(self.bins, self.z[:, 50], '--k')
+            #ax.plot(tmp[self.conf], tmp['LOESS_pred'], '-k')
             #plt.fill_between(np.squeeze(self.bins),
             #                 np.squeeze(self.z[:, 5]),
             #                 np.squeeze(self.z[:, 95]),
