@@ -97,13 +97,13 @@ from pynm.pynm import PyNM
 
 # Initialize pynm w/ data and confounds
 m = PyNM(df,'score','group',
-        conf = 'age',                           #age confound for LOESS and Centiles model
-        confounds = ['age','C(sex)','C(site)']) #multivarite confounds for GP model
+        confounds = ['age','C(sex)','C(site)'])
 
 # Run models
 m.loess_normative_model()
 m.centiles_normative_model()
 m.gp_normative_model()
+m.gamlss_normative_model()
 
 # Collect output
 data = m.data
