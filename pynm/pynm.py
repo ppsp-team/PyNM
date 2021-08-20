@@ -686,36 +686,42 @@ class PyNM:
             sns.scatterplot(data=self.data, x=self.conf, y=self.score,
                              hue=self.group, style=self.group,ax=ax)
             tmp=self.data.sort_values(self.conf)
-            ax.plot(tmp[self.conf], tmp['LOESS_pred'], '-k')
+            ax.plot(tmp[self.conf], tmp['LOESS_pred'], '-k',label='Prediction')
             ax.plot(tmp[self.conf], tmp['LOESS_pred'] - 1.96*tmp['LOESS_sigma'], '--k')
-            ax.plot(tmp[self.conf], tmp['LOESS_pred'] + 1.96*tmp['LOESS_sigma'], '--k')
+            ax.plot(tmp[self.conf], tmp['LOESS_pred'] + 1.96*tmp['LOESS_sigma'], '--k',label='95% CI')
+            handles, labels = ax.get_legend_handles_labels()
+            ax.legend(handles, labels)
         elif kind == 'Centiles':
             sns.scatterplot(data=self.data, x=self.conf, y=self.score,
                                 hue=self.group, style=self.group,ax=ax)
             tmp=self.data.sort_values(self.conf)
-            ax.plot(tmp[self.conf], tmp['Centiles_pred'], '-k')
+            ax.plot(tmp[self.conf], tmp['Centiles_pred'], '-k',label='Prediction')
             ax.plot(self.bins,self.z[:, 5],'--k')
-            ax.plot(self.bins,self.z[:, 95],'--k')
-            #ax.plot(tmp[self.conf], tmp['Centiles_pred'] - 1.96*tmp['Centiles_sigma'], '--k') #THIS IS NONSENSICAL
-            #ax.plot(tmp[self.conf], tmp['Centiles_pred'] + 1.96*tmp['Centiles_sigma'], '--k')
+            ax.plot(self.bins,self.z[:, 95],'--k',label='95% CI')
+            handles, labels = ax.get_legend_handles_labels()
+            ax.legend(handles, labels)
         elif kind == 'GP':
             if gp_xaxis is None:
                 gp_xaxis = self.conf
             sns.scatterplot(data=self.data, x=gp_xaxis, y=self.score,
                                 hue=self.group, style=self.group,ax=ax)
             tmp=self.data.sort_values(gp_xaxis)
-            ax.plot(tmp[gp_xaxis], tmp['GP_pred'], '-k')
+            ax.plot(tmp[gp_xaxis], tmp['GP_pred'], '-k',label='Prediction')
             ax.plot(tmp[self.conf], tmp['GP_pred'] - 1.96*tmp['GP_sigma'], '--k')
-            ax.plot(tmp[self.conf], tmp['GP_pred'] + 1.96*tmp['GP_sigma'], '--k')
+            ax.plot(tmp[self.conf], tmp['GP_pred'] + 1.96*tmp['GP_sigma'], '--k',label='95% CI')
+            handles, labels = ax.get_legend_handles_labels()
+            ax.legend(handles, labels)
         elif kind == 'GAMLSS':
             if gamlss_xaxis is None:
                 gamlss_xaxis = self.conf
             sns.scatterplot(data=self.data, x=gamlss_xaxis, y=self.score,
                                 hue=self.group, style=self.group,ax=ax)
             tmp=self.data.sort_values(gamlss_xaxis)
-            ax.plot(tmp[gamlss_xaxis], tmp['GAMLSS_pred'], '-k')
+            ax.plot(tmp[gamlss_xaxis], tmp['GAMLSS_pred'], '-k',label='Prediction')
             ax.plot(tmp[self.conf], tmp['GAMLSS_pred'] - 1.96*tmp['GAMLSS_sigma'], '--k')
-            ax.plot(tmp[self.conf], tmp['GAMLSS_pred'] + 1.96*tmp['GAMLSS_sigma'], '--k')
+            ax.plot(tmp[self.conf], tmp['GAMLSS_pred'] + 1.96*tmp['GAMLSS_sigma'], '--k',label='95% CI')
+            handles, labels = ax.get_legend_handles_labels()
+            ax.legend(handles, labels)
         return ax
 
     def plot(self, kind=None,gp_xaxis=None,gamlss_xaxis=None):
@@ -813,15 +819,83 @@ class PyNM:
         if kind is None:
             kind = []
             for k in ['LOESS','Centiles','GP','GAMLSS']:
-                if '{}_pred'.format(k) in self.data.columns:
+                if '{}_residuals'.format(k) in self.data.columns:
                     kind.append(k)
             if len(kind)==0:
-                raise ValueError('No model results found in data.')
+                raise ValueError('No model residuals found in data.')
         
         if set(kind).issubset(set(['LOESS','Centiles','GP','GAMLSS'])):
             fig, ax = plt.subplots(1,len(kind),figsize=(len(kind)*5,5))
             for i,k in enumerate(kind):
                 self._plot_res(ax[i],kind=k,confound=confound)
+            plt.show()
+        else:
+            raise ValueError('Plot kind not recognized, must be a valid subset of ["Centiles","LOESS","GP","GAMLSS"] or None.')
+    
+    def _plot_z(self, ax,kind=None, confound=None):
+        """ Plot the deviance scores of the normative model.
+
+        Parameters
+        ----------
+        ax: matplotlib axis
+            Axis on which to plot.
+        kind: str, default=None
+            Type of plot among "LOESS" (local polynomial), "Centiles", "GP" (gaussian processes),
+            or "GAMLSS" (generalized additive models of location scale and shape).
+        confound: str or None
+            Which confound to use as xaxis of plot, must be categorical or None.
+        """
+        if confound is None:
+            confound = np.zeros(self.data.shape[0])
+        if kind == 'LOESS':
+            sns.violinplot(x=confound, y='LOESS_z',
+                           data=self.data, split=True, palette='Blues', hue=self.group,ax=ax)
+            ax.set_title(f"{kind} SMSE={np.round(self.SMSE_LOESS,3)}")
+        if kind == 'Centiles':
+            sns.violinplot(x=confound, y='Centiles_z',
+                           data=self.data, split=True, palette='Blues', hue=self.group,ax=ax)
+            ax.set_title(f"{kind} SMSE={np.round(self.SMSE_Centiles,3)}")
+        if kind == 'GP':
+            sns.violinplot(x=confound, y='GP_z',
+                           data=self.data, split=True, palette='Blues', hue=self.group,ax=ax)
+            ax.set_title(f"{kind} SMSE={np.round(self.SMSE_GP,3)} - MSLL={np.round(self.MSLL_GP,3)}")
+        if kind == 'GAMLSS':
+            sns.violinplot(x=confound, y='GAMLSS_z',
+                           data=self.data, split=True, palette='Blues', hue=self.group,ax=ax)
+            ax.set_title(f"{kind} SMSE={np.round(self.SMSE_GAMLSS,3)}")
+        if not isinstance(confound,str):
+            ax.set_xticklabels([''])
+
+    def plot_z(self, kind=None, confound=None):
+        """Plot the deviance scores of the normative model.
+
+        Parameters
+        ----------
+        kind: list default=None
+            Type of plot, must be a valid subset of ["Centiles","LOESS","GP","GAMLSS"] or None. If None, all available
+            results will be plotted, if None are available a ValueError will be raised.
+        confound: str, default=None
+            Which confound to use as xaxis of plot, must be categorical or None.
+        
+        Raises
+        ------
+        ValueError
+            Plot kind not recognized, must be a valid subset of ["Centiles","LOESS","GP","GAMLSS"] or None.
+        ValueError
+            No model results found in data.
+        """
+        if kind is None:
+            kind = []
+            for k in ['LOESS','Centiles','GP','GAMLSS']:
+                if '{}_z'.format(k) in self.data.columns:
+                    kind.append(k)
+            if len(kind)==0:
+                raise ValueError('No model deviance scores found in data.')
+        
+        if set(kind).issubset(set(['LOESS','Centiles','GP','GAMLSS'])):
+            fig, ax = plt.subplots(1,len(kind),figsize=(len(kind)*5,5))
+            for i,k in enumerate(kind):
+                self._plot_z(ax[i],kind=k,confound=confound)
             plt.show()
         else:
             raise ValueError('Plot kind not recognized, must be a valid subset of ["Centiles","LOESS","GP","GAMLSS"] or None.')

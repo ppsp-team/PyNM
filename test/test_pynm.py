@@ -4,7 +4,7 @@ import pandas as pd
 import scipy.stats as sp
 import math
 import pytest
-from pynm.util import read_confounds
+from pynm.util import *
 
 def model(age, sex, offset):
     noise = np.random.normal(0, 0.1)
@@ -267,6 +267,22 @@ class TestBasic:
         assert len(record) == 1
         assert record[0].message.args[0] == "The residuals are heteroskedastic!"
     
+    def test_rmse(self):
+        y_true = np.array([1,2,3,4,5])
+        y_pred = np.array([0,1,3,5,2])
+        assert RMSE(y_true,y_pred) == np.sqrt(2.4)
+
+    def test_smse(self):
+        y_true = np.array([1,2,3,4,5])
+        y_pred = np.array([0,1,3,5,2])
+        assert SMSE(y_true,y_pred) == np.sqrt(2.4)/np.sqrt(2)
+    
+    def test_msll(self):
+        y_true = np.array([1,2,3,4,5])
+        y_pred = np.array([0,1,3,5,2])
+        sigma = np.array([1,2,1,2,1])
+        msll = 0.5*np.log(2*np.pi*np.array([1,4,1,4,1])) + np.array([1/2,1/8,0,1/8,9/2]) - np.array([4,1,0,1,4])/(2*np.sqrt(2))
+        assert MSLL(y_true,y_pred,sigma) == np.mean(msll)
 
 class TestApprox:
     def test_svgp_init(self):
