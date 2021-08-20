@@ -101,8 +101,8 @@ class PyNM:
         MSLL of GAMLSS
     """
 
-    def __init__(self, data, score='score', group='group', confounds=['age', 'c(sex)', 'c(site)'], train_sample='controls',
-                bin_spacing=-1, bin_width=-1):
+    def __init__(self, data, score, group, confounds, 
+                train_sample='controls', bin_spacing=-1, bin_width=-1):
         """ Create a PyNM object.
 
         Parameters
@@ -110,11 +110,11 @@ class PyNM:
         data : dataframe
             Dataset to fit model, must at least contain columns corresponding to 'group',
             'score', and 'conf'.
-        score : str, default='score'
+        score : str
             Label of column from data with score (response variable).
-        group : str, default='group'
+        group : str
             Label of column from data that encodes wether subjects are probands or controls.
-        confounds: list of str, default=['age', 'c(sex)', 'c(site)']
+        confounds: list of str
             List of labels of columns from data with confounds. For GP model all confounds will be used,
             for LOESS and Centiles models only the first is used. For GAMLSS all confounds are used
             unless formulas are specified. Categorical values must be denoted by c(var) ('c' must be lower case).

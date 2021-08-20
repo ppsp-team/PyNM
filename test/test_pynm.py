@@ -99,30 +99,30 @@ class TestBasic:
 
     def test_set_group_names_PROB_CON_all_CON(self):
         data = generate_data(randseed=1)
-        m = pynm.PyNM(data)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
         assert m.CTR == 'CTR'
         assert m.PROB == 'PROB'
 
     def test_set_group_names_PROB_CON(self):
         data = generate_data(randseed=3)
-        m = pynm.PyNM(data)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
         assert m.CTR == 'CTR'
         assert m.PROB == 'PROB'
 
     def test_set_group_names_01(self):
         data = generate_data(randseed=3, group='01')
-        m = pynm.PyNM(data)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
         assert m.CTR == 0
         assert m.PROB == 1
 
     def test_set_group_controls(self):
         data = generate_data(randseed=3, group='01')
-        m = pynm.PyNM(data,train_sample='controls')
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'],train_sample='controls')
         assert m.group == 'group'
     
     def test_set_group_33(self):
         data = generate_data(randseed=3, group='01')
-        m = pynm.PyNM(data,train_sample='0.33')
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'],train_sample='0.33')
         assert m.group == 'train_sample'
         assert m.data['train_sample'].sum() == 1
         assert m.data[(m.data['train_sample']==1) & (m.data['group']== 1)].shape[0] == 0
@@ -130,61 +130,61 @@ class TestBasic:
     def test_set_group_manual_no_col(self):
         data = generate_data(randseed=3, group='01')
         with pytest.raises(ValueError):
-            m = pynm.PyNM(data,train_sample='manual')
+            m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'],train_sample='manual')
     
     def test_set_group_manual_zero_col(self):
         data = generate_data(randseed=3, group='01')
         data['train_sample'] = 0
         with pytest.raises(ValueError):
-            m = pynm.PyNM(data,train_sample='manual')
+            m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'],train_sample='manual')
     
     def test_set_group_manual_good_col(self):
         data = generate_data(randseed=3, group='01')
         data['train_sample'] = [1,1,0,0,0,0]
-        m = pynm.PyNM(data,train_sample='manual')
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'],train_sample='manual')
         assert m.PROB == 0
         assert m.group == 'train_sample'
 
     def test_create_bins(self):
         data = generate_data(randseed=3)
-        m = pynm.PyNM(data,bin_spacing=8,bin_width=1.5)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'],bin_spacing=8,bin_width=1.5)
         m.centiles_normative_model()
         assert m.bins is not None
 
     def test_bins_num(self):
         data = generate_data(randseed=11)
-        m = pynm.PyNM(data,bin_spacing=5, bin_width=10)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'],bin_spacing=5, bin_width=10)
         m._create_bins()
         assert len(m.bins) == 6
 
     def test_loess_rank(self):
         data = generate_data(randseed=11)
-        m = pynm.PyNM(data,bin_spacing=8,bin_width=1.5)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'],bin_spacing=8,bin_width=1.5)
         m.loess_normative_model()
         assert np.sum(m.data.LOESS_rank) == 1
 
     def test_loess_normative_model(self):
         data = generate_data(randseed=11)
-        m = pynm.PyNM(data,bin_spacing=8,bin_width=1.5)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'],bin_spacing=8,bin_width=1.5)
         m.loess_normative_model()
         assert math.isclose(2.3482, np.sum(m.data.LOESS_z), abs_tol=0.00001)
 
     def test_centiles_rank(self):
         data = generate_data(randseed=11)
-        m = pynm.PyNM(data,bin_spacing=8,bin_width=1.5)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'],bin_spacing=8,bin_width=1.5)
         m.centiles_normative_model()
         assert np.sum(m.data.Centiles_rank) == -22
 
     def test_centiles_normative_model(self):
         data = generate_data(randseed=11)
-        m = pynm.PyNM(data,bin_spacing=8,bin_width=1.5)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'],bin_spacing=8,bin_width=1.5)
         m.centiles_normative_model()
         assert np.sum(m.data.Centiles) == 446
 
     def test_get_masks(self):
         a = np.array(list(range(6)))
         data = generate_data(randseed=3)
-        m = pynm.PyNM(data)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
         ctr, prob = m._get_masks()
         assert a[ctr].shape[0] == 5
         assert a[prob][0] == 3
@@ -192,14 +192,14 @@ class TestBasic:
     def test_get_masks_all_CON(self):
         a = np.array(list(range(12)))
         data = generate_data(randseed=1)
-        m = pynm.PyNM(data)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
         ctr, prob = m._get_masks()
         assert a[ctr].shape[0] == 12
         assert a[prob].shape[0] == 0
 
     def test_get_conf_mat(self):
         data = generate_data(randseed=3)
-        m = pynm.PyNM(data)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
         conf_mat = m._get_conf_mat()
         assert conf_mat.shape[0] == 6
         assert conf_mat.shape[1] == 3
@@ -208,22 +208,22 @@ class TestBasic:
 
     def test_use_approx_auto_small(self):
         data = generate_data(randseed=3)
-        m = pynm.PyNM(data)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
         assert m._use_approx(method='auto') == False
 
     def test_use_approx_auto_big(self):
         data = generate_data(randseed=3,sample_size=1000)
-        m = pynm.PyNM(data)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
         assert m._use_approx(method='auto') == True
 
     def test_use_approx_approx(self):
         data = generate_data(randseed=3,sample_size=1000)
-        m = pynm.PyNM(data)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
         assert m._use_approx(method='approx') == True
     
     def test_use_approx_exact(self):
         data = generate_data(randseed=3,sample_size=2000)
-        m = pynm.PyNM(data)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
         with pytest.warns(Warning) as record:
             use_approx = m._use_approx(method='exact')
         assert len(record) == 1
@@ -232,7 +232,7 @@ class TestBasic:
 
     def test_gp_normative_model(self):
         data = generate_data(sample_size=4, n_sites=2, randseed=3)
-        m = pynm.PyNM(data)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
         m.gp_normative_model()
         assert 'GP_pred' in m.data.columns
         assert math.isclose(0,m.data['GP_residuals'].mean(),abs_tol=0.5)
@@ -240,20 +240,20 @@ class TestBasic:
     @pytest.fixture(scope='function')
     def test_plot(self):
         data = generate_data(randseed=3)
-        m = pynm.PyNM(data)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
         m.gp_normative_model()
         assert m.plot() is None
 
     def test_homo_res(self):
         data = dataset_homo()
-        m = pynm.PyNM(data, score='score',confounds = ['x'],group='train_sample')
+        m = pynm.PyNM(data,'score','train_sample',['x'])
         with pytest.warns(None) as record:
             m.gp_normative_model(method='exact')
         assert len(record) == 0
 
     def test_nongaussian_res(self):
         data = dataset_skew()
-        m = pynm.PyNM(data, score='score',confounds = ['x'],group='train_sample')
+        m = pynm.PyNM(data,'score','train_sample',['x'])
         with pytest.warns(Warning) as record:
             m.gp_normative_model(method='exact')
         assert len(record) == 1
@@ -261,7 +261,7 @@ class TestBasic:
 
     def test_het_res(self):
         data = dataset_het()
-        m = pynm.PyNM(data, score='score',confounds = ['x'],group='train_sample')
+        m = pynm.PyNM(data,'score','train_sample',['x'])
         with pytest.warns(Warning) as record:
             m.gp_normative_model(method='exact')
         assert len(record) == 1
@@ -273,7 +273,7 @@ class TestApprox:
         from pynm.approx import SVGP
 
         data = generate_data(randseed=3)
-        m = pynm.PyNM(data)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
         conf_mat = m._get_conf_mat()
         ctr,prob = m._get_masks()
         score = m._get_score()
@@ -285,7 +285,7 @@ class TestApprox:
         from pynm.approx import SVGP
 
         data = generate_data(randseed=3)
-        m = pynm.PyNM(data)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
         conf_mat = m._get_conf_mat()
         ctr,prob = m._get_masks()
         score = m._get_score()
@@ -298,7 +298,7 @@ class TestApprox:
         from pynm.approx import SVGP
 
         data = generate_data(randseed=3)
-        m = pynm.PyNM(data)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
         conf_mat = m._get_conf_mat()
         ctr,prob = m._get_masks()
         score = m._get_score()
@@ -310,7 +310,7 @@ class TestApprox:
 
     def test_svgp_model(self):
         data = generate_data(sample_size=4, n_sites=2, randseed=3)
-        m = pynm.PyNM(data)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
         m.gp_normative_model(method='approx')
 
         assert 'GP_pred' in m.data.columns
@@ -326,19 +326,19 @@ class TestGAMLSS:
 
     def test_gamlss(self):
         data = generate_data(sample_size=4, n_sites=2, randseed=3)
-        m = pynm.PyNM(data)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
         m.gamlss_normative_model(mu='score ~ cs(age)',sigma='~ age + site',tau='~ c(sex)')
         assert 'GAMLSS_pred' in m.data.columns
     
     def test_gamlss_smse(self):
         data = generate_data(sample_size=4, n_sites=2, randseed=3)
-        m = pynm.PyNM(data)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
         m.gamlss_normative_model(mu='score ~ cs(age)',sigma='~ age + site',tau='~ c(sex)')
         assert m.SMSE_GAMLSS > 0
     
     def test_gamlss_default_formulas(self):
         data = generate_data(sample_size=4, n_sites=2, randseed=3)
-        m = pynm.PyNM(data,confounds=['age','c(sex)','c(site)'])
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
         m.gamlss_normative_model()
         assert 'GAMLSS_pred' in m.data.columns
     
@@ -351,8 +351,7 @@ class TestGAMLSS:
     def test_gamlss_nan_issue(self):
         df = generate_data(n_sites=4,sample_size=35,randseed=650)
         #Initialize pynm w/ data and confounds
-        m = pynm.PyNM(df,'score','group',
-                confounds = ['age','c(sex)','c(site)'])
+        m = pynm.PyNM(df,'score','group',['age','c(sex)','c(site)'])
         m.loess_normative_model()
         m.centiles_normative_model()
         m.gamlss_normative_model(mu='score ~ ps(age) + c(sex) + c(site)',sigma = '~ age',family='SHASHo2')
@@ -368,6 +367,5 @@ class TestGAMLSS:
     def test_gamlss_what_mu(self):
         df = generate_data(n_sites=4,sample_size=35,randseed=650)
         #Initialize pynm w/ data and confounds
-        m = pynm.PyNM(df,'score','group',
-                confounds = ['age','c(sex)','c(site)'])
+        m = pynm.PyNM(df,'score','group',['age','c(sex)','c(site)'])
         m.gamlss_normative_model(mu='score ~ ps(age) + c(sex) + c(site)',sigma = '~ ps(age)',family='SHASHo2')
