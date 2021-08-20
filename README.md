@@ -38,17 +38,15 @@ $ pip install pynm
 
 ## Command Line Usage
 ```
-usage: pynm [-h] --pheno_p PHENO_P --out_p OUT_P [--confounds CONFOUNDS]
-            [--score SCORE] [--group GROUP] [--train_sample TRAIN_SAMPLE]
-            [--LOESS] [--centiles] [--bin_spacing BIN_SPACING]
-            [--bin_width BIN_WIDTH] [--GP] [--gp_method GP_METHOD]
-            [--gp_num_epochs GP_NUM_EPOCHS] [--gp_n_inducing GP_N_INDUCING]
-            [--gp_batch_size GP_BATCH_SIZE]
+usage: pynm [-h] --pheno_p PHENO_P --out_p OUT_P --confounds CONFOUNDS --score
+            SCORE --group GROUP [--train_sample TRAIN_SAMPLE] [--LOESS]
+            [--centiles] [--bin_spacing BIN_SPACING] [--bin_width BIN_WIDTH]
+            [--GP] [--gp_method GP_METHOD] [--gp_num_epochs GP_NUM_EPOCHS]
+            [--gp_n_inducing GP_N_INDUCING] [--gp_batch_size GP_BATCH_SIZE]
             [--gp_length_scale GP_LENGTH_SCALE] [--gp_nu NU] [--GAMLSS]
             [--gamlss_mu GAMLSS_MU] [--gamlss_sigma GAMLSS_SIGMA]
             [--gamlss_nu GAMLSS_NU] [--gamlss_tau GAMLSS_TAU]
-            [--gamlss_family GAMLSS_FAMILY] [--gamlss_what GAMLSS_WHAT]
-            [--gamlss_lib_loc GAMLSS_LIB_LOC]
+            [--gamlss_family GAMLSS_FAMILY] [--gamlss_lib_loc GAMLSS_LIB_LOC]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -63,15 +61,14 @@ optional arguments:
                         For GAMLSS all confounds are used unless formulas are
                         specified. Categorical values must be denoted by
                         c(var) ('c' must be lower case), e.g. 'c(SEX)' for
-                        column name 'SEX'. Default value is 'age'.
+                        column name 'SEX'.
   --score SCORE         Response variable for all models. Must be a column
-                        title from phenotype .csv file. Default value is
-                        'score'.
+                        title from phenotype .csv file.
   --group GROUP         Column name from the phenotype .csv file that
                         distinguishes probands from controls. The column must
                         be encoded with str labels using 'PROB' for probands
                         and 'CTR' for controls or with int labels using 1 for
-                        probands and 0 for controls. Default value is 'group'.
+                        probands and 0 for controls.
   --train_sample TRAIN_SAMPLE
                         On what subset to train the model, can be 'controls',
                         'manual', or a value in (0,1]. Default value is
@@ -123,9 +120,6 @@ optional arguments:
                         Family of distributions to use for fitting, default is
                         'SHASHo2'. See R documentation for GAMLSS package for
                         other available families of distributions.
-  --gamlss_what GAMLSS_WHAT
-                        What parameter for GAMLSS to predict, can be 'mu',
-                        'sigma', 'nu' or 'tau'. Default is 'mu'.
   --gamlss_lib_loc GAMLSS_LIB_LOC
                         Path to location of installed GAMLSS package. Default
                         is None.
