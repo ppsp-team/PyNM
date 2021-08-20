@@ -81,14 +81,3 @@ def MSLL(y_true,y_pred,sigma):
                     (y_true - np.mean(y_true))**2 /
                     (2 * np.std(y_true)))
     return np.mean(SLL)
-
-def confidence_interval():
-    """Calculates the confidence interval.
-
-    Parameters
-    ----------
-
-    Returns
-    -------
-    """
-    return None
