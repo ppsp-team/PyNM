@@ -130,7 +130,7 @@ from pynm.pynm import PyNM
 
 # Initialize pynm w/ data and confounds
 m = PyNM(df,'score','group',
-        confounds = ['age','C(sex)','C(site)'])
+        confounds = ['age','c(sex)','c(site)'])
 
 # Run models
 m.loess_normative_model()
