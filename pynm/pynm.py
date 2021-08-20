@@ -750,11 +750,16 @@ class PyNM:
             if len(kind)==0:
                 warnings.warn('No model results found in data.')
         
-        if set(kind).issubset(set(['LOESS','Centiles','GP','GAMLSS'])) and len(kind)>0:
+        if set(kind).issubset(set(['LOESS','Centiles','GP','GAMLSS'])) and len(kind)>1:
             fig, ax = plt.subplots(1,len(kind),figsize=(len(kind)*5,5))
             for i,k in enumerate(kind):
                 self._plot(ax[i],kind=k,gp_xaxis=gp_xaxis,gamlss_xaxis=gamlss_xaxis)
                 ax[i].set_title(k)
+            plt.show()
+        elif set(kind).issubset(set(['LOESS','Centiles','GP','GAMLSS'])) and len(kind)>0:
+            fig, ax = plt.subplots(1,len(kind),figsize=(len(kind)*5,5))
+            self._plot(ax,kind=kind[0],gp_xaxis=gp_xaxis,gamlss_xaxis=gamlss_xaxis)
+            ax.set_title(kind[0])
             plt.show()
         elif len(kind)==0:
             fig, ax = plt.subplots(1,1)
@@ -824,10 +829,14 @@ class PyNM:
             if len(kind)==0:
                 raise ValueError('No model residuals found in data.')
         
-        if set(kind).issubset(set(['LOESS','Centiles','GP','GAMLSS'])):
+        if set(kind).issubset(set(['LOESS','Centiles','GP','GAMLSS'])) and len(kind)>1:
             fig, ax = plt.subplots(1,len(kind),figsize=(len(kind)*5,5))
             for i,k in enumerate(kind):
                 self._plot_res(ax[i],kind=k,confound=confound)
+            plt.show()
+        elif set(kind).issubset(set(['LOESS','Centiles','GP','GAMLSS'])):
+            fig, ax = plt.subplots(1,len(kind),figsize=(len(kind)*5,5))
+            self._plot_res(ax,kind=kind[0],confound=confound)
             plt.show()
         else:
             raise ValueError('Plot kind not recognized, must be a valid subset of ["Centiles","LOESS","GP","GAMLSS"] or None.')
@@ -892,10 +901,14 @@ class PyNM:
             if len(kind)==0:
                 raise ValueError('No model deviance scores found in data.')
         
-        if set(kind).issubset(set(['LOESS','Centiles','GP','GAMLSS'])):
+        if set(kind).issubset(set(['LOESS','Centiles','GP','GAMLSS'])) and len(kind)>1:
             fig, ax = plt.subplots(1,len(kind),figsize=(len(kind)*5,5))
             for i,k in enumerate(kind):
                 self._plot_z(ax[i],kind=k,confound=confound)
+            plt.show()
+        elif set(kind).issubset(set(['LOESS','Centiles','GP','GAMLSS'])):
+            fig, ax = plt.subplots(1,len(kind),figsize=(len(kind)*5,5))
+            self._plot_z(ax,kind=kind[0],confound=confound)
             plt.show()
         else:
             raise ValueError('Plot kind not recognized, must be a valid subset of ["Centiles","LOESS","GP","GAMLSS"] or None.')

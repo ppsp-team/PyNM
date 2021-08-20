@@ -5,6 +5,8 @@ import scipy.stats as sp
 import math
 import pytest
 from pynm.util import *
+import matplotlib.pyplot as plt
+from unittest.mock import patch 
 
 def model(age, sex, offset):
     noise = np.random.normal(0, 0.1)
@@ -236,13 +238,6 @@ class TestBasic:
         m.gp_normative_model()
         assert 'GP_pred' in m.data.columns
         assert math.isclose(0,m.data['GP_residuals'].mean(),abs_tol=0.5)
-    
-    @pytest.fixture(scope='function')
-    def test_plot(self):
-        data = generate_data(randseed=3)
-        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
-        m.gp_normative_model()
-        assert m.plot() is None
 
     def test_homo_res(self):
         data = dataset_homo()
@@ -283,6 +278,138 @@ class TestBasic:
         sigma = np.array([1,2,1,2,1])
         msll = 0.5*np.log(2*np.pi*np.array([1,4,1,4,1])) + np.array([1/2,1/8,0,1/8,9/2]) - np.array([4,1,0,1,4])/(2*np.sqrt(2))
         assert MSLL(y_true,y_pred,sigma) == np.mean(msll)
+
+@patch("matplotlib.pyplot.show")
+class TestPlot:
+    def test_plot_default(self,mock_patch):
+        data = generate_data(randseed=3)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
+        m.centiles_normative_model()
+        m.plot()
+        assert True
+    
+    def test_plot_default_two_models(self,mock_patch):
+        data = generate_data(randseed=3)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
+        m.centiles_normative_model()
+        m.loess_normative_model()
+        assert m.plot() is None
+    
+    def test_plot_default_no_models(self,mock_patch):
+        data = generate_data(randseed=3)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
+        with pytest.warns(Warning) as record:
+            m.plot()
+    
+    def test_plot_valid_subset(self,mock_patch):
+        subset = ['Centiles','LOESS']
+        data = generate_data(randseed=3)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
+        m.centiles_normative_model()
+        m.loess_normative_model()
+        assert m.plot(kind=subset) is None
+    
+    def test_plot_invalid_subset1(self,mock_patch):
+        subset = ['Centiles',None]
+        data = generate_data(randseed=3)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
+        m.centiles_normative_model()
+        with pytest.raises(ValueError):
+            m.plot(kind=subset)
+    
+    def test_plot_invalid_subset2(self,mock_patch):
+        subset = ['Centiles','GAMLSS']
+        data = generate_data(randseed=3)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
+        m.centiles_normative_model()
+        with pytest.raises(KeyError):
+            m.plot(kind=subset)
+    
+    def test_plot_res_default(self,mock_patch):
+        data = generate_data(randseed=3)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
+        m.centiles_normative_model()
+        assert m.plot_res() is None
+    
+    def test_plot_res_default_two_models(self,mock_patch):
+        data = generate_data(randseed=3)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
+        m.centiles_normative_model()
+        m.loess_normative_model()
+        assert m.plot_res() is None
+    
+    def test_plot_res_default_no_models(self,mock_patch):
+        data = generate_data(randseed=3)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
+        with pytest.raises(ValueError):
+            m.plot_res()
+    
+    def test_plot_res_valid_subset(self,mock_patch):
+        subset = ['Centiles','LOESS']
+        data = generate_data(randseed=3)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
+        m.centiles_normative_model()
+        m.loess_normative_model()
+        assert m.plot_res(kind=subset) is None
+    
+    def test_plot_res_invalid_subset1(self,mock_patch):
+        subset = ['Centiles',None]
+        data = generate_data(randseed=3)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
+        m.centiles_normative_model()
+        with pytest.raises(ValueError):
+            m.plot_res(kind=subset)
+    
+    def test_plot_res_invalid_subset2(self,mock_patch):
+        subset = ['Centiles','GAMLSS']
+        data = generate_data(randseed=3)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
+        m.centiles_normative_model()
+        with pytest.raises(ValueError):
+            m.plot_res(kind=subset)
+    
+    def test_plot_z_default(self,mock_patch):
+        data = generate_data(randseed=3)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
+        m.centiles_normative_model()
+        assert m.plot_z() is None
+    
+    def test_plot_z_default_two_models(self,mock_patch):
+        data = generate_data(randseed=3)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
+        m.centiles_normative_model()
+        m.loess_normative_model()
+        assert m.plot_z() is None
+    
+    def test_plot_z_default_no_models(self,mock_patch):
+        data = generate_data(randseed=3)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
+        with pytest.raises(ValueError):
+            m.plot_z()
+    
+    def test_plot_z_valid_subset(self,mock_patch):
+        subset = ['Centiles','LOESS']
+        data = generate_data(randseed=3)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
+        m.centiles_normative_model()
+        m.loess_normative_model()
+        assert m.plot_z(kind=subset) is None
+    
+    def test_plot_z_invalid_subset1(self,mock_patch):
+        subset = ['Centiles',None]
+        data = generate_data(randseed=3)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
+        m.centiles_normative_model()
+        with pytest.raises(ValueError):
+            m.plot_z(kind=subset)
+    
+    def test_plot_z_invalid_subset2(self,mock_patch):
+        subset = ['Centiles','GAMLSS']
+        data = generate_data(randseed=3)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
+        m.centiles_normative_model()
+        with pytest.raises(ValueError):
+            m.plot_z(kind=subset)
 
 class TestApprox:
     def test_svgp_init(self):
