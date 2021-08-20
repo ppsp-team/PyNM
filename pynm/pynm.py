@@ -36,33 +36,7 @@ from scipy import stats
 
 from sklearn import gaussian_process
 from sklearn.gaussian_process.kernels import Matern, WhiteKernel, ConstantKernel
-
-
-def _read_confounds(confounds):
-    """ Process input list of confounds.
-
-    Parameters
-    ----------
-    confounds : list of str
-        List of confounds with categorical variables indicated by c(var) ('c' must be lower case).
-
-    Returns
-    -------
-    list
-        List of all confounds without wrapper on categorical variables: c(var) -> var.
-    list
-        List of only categorical confounds without wrapper.
-    """
-    categorical = []
-    clean_confounds = []
-    for conf in confounds:
-        if ((conf[0:2] == 'c(') & (conf[-1] == ')')):
-            categorical.append(conf[2:-1])
-            clean_confounds.append(conf[2:-1])
-        else:
-            clean_confounds.append(conf)
-    return clean_confounds, categorical
-
+from pynm.util import * 
 
 class PyNM:
     """ Class to run normative modeling using LOESS, centiles, or GP model.
@@ -105,16 +79,26 @@ class PyNM:
         Confidence interval of each bin.
     z: array
         Centiles for each bin.
+    RMSE_LOESS: float
+        RMSE of LOESS normative model
     SMSE_LOESS: float
-        Mean Square Error of LOESS normative model
+        SMSE of LOESS normative model
+    RMSE_Centiles: float
+        RMSE of Centiles normative model
     SMSE_Centiles: float
-        Mean Square Error of Centiles normative model
+        SMSE of Centiles normative model
+    RMSE_GP: float
+        RMSE of Gaussian Process normative model
     SMSE_GP: float
-        Mean Square Error of Gaussian Process normative model
-    SMSE_GAMLSS: float
-        Mean Square Error of GAMLSS
+        SMSE of Gaussian Process normative model
     MSLL_GP: float
-        Mean Standardized Log Loss of Gaussian Process normative model
+        MSLL of Gaussian Process normative model
+    RMSE_GAMLSS: float
+        RMSE of GAMLSS
+    SMSE_GAMLSS: float
+        SMSE of GAMLSS
+    MSLL_GAMLSS: float
+        MSLL of GAMLSS
     """
 
     def __init__(self, data, score='score', group='group', confounds=['age', 'c(sex)', 'c(site)'], train_sample='controls',
@@ -158,11 +142,16 @@ class PyNM:
         self.zstd = None
         self.zci = None
         self.z = None
+        self.RMSE_LOESS = None
         self.SMSE_LOESS = None
+        self.RMSE_Centiles = None
         self.SMSE_Centiles = None
+        self.RMSE_GP = None
         self.SMSE_GP = None
-        self.SMSE_GAMLSS = None
         self.MSLL_GP = None
+        self.RMSE_GAMLSS = None
+        self.SMSE_GAMLSS = None
+        self.MSLL_GAMLSS = None
 
         self._set_group_names()
         self._set_group()
@@ -302,17 +291,17 @@ class PyNM:
 
     def _loess_rank(self):
         """ Associate ranks to LOESS normative scores."""
-        self.data.loc[(self.data.LOESS_pred <= -2), 'LOESS_rank'] = -2
-        self.data.loc[(self.data.LOESS_pred > -2) &
-                      (self.data.LOESS_pred <= -1), 'LOESS_rank'] = -1
-        self.data.loc[(self.data.LOESS_pred > -1) &
-                      (self.data.LOESS_pred <= +1), 'LOESS_rank'] = 0
-        self.data.loc[(self.data.LOESS_pred > +1) &
-                      (self.data.LOESS_pred <= +2), 'LOESS_rank'] = 1
-        self.data.loc[(self.data.LOESS_pred > +2), 'LOESS_rank'] = 2
+        self.data.loc[(self.data.LOESS_z <= -2), 'LOESS_rank'] = -2
+        self.data.loc[(self.data.LOESS_z > -2) &
+                      (self.data.LOESS_z <= -1), 'LOESS_rank'] = -1
+        self.data.loc[(self.data.LOESS_z > -1) &
+                      (self.data.LOESS_z <= +1), 'LOESS_rank'] = 0
+        self.data.loc[(self.data.LOESS_z > +1) &
+                      (self.data.LOESS_z <= +2), 'LOESS_rank'] = 1
+        self.data.loc[(self.data.LOESS_z > +2), 'LOESS_rank'] = 2
 
     def loess_normative_model(self):
-        """ Compute classical normative model."""
+        """ Compute LOESS normative model."""
         if self.bins is None:
             self._create_bins()
         
@@ -357,14 +346,14 @@ class PyNM:
         idx = [np.argmin(d) for d in dists]
         m = np.array([self.zm[i] for i in idx])
         std = np.array([self.zstd[i] for i in idx])
-        nmodel = (self.data[self.score] - m) / std
-        self.data['LOESS_pred'] = nmodel
-        #self.data['LOESS_pred'] = m
-        self.data['LOESS_residuals'] = self.data[self.score] - self.data['LOESS_pred']
 
-        score = self._get_score()
-        res = self.data['LOESS_residuals'].to_numpy(dtype=np.float64)
-        self.SMSE_LOESS = (np.mean(res[ctr_mask]**2)**0.5) / np.std(score[ctr_mask])
+        self.data['LOESS_pred'] = m
+        self.data['LOESS_sigma'] = std
+        self.data['LOESS_residuals'] = self.data[self.score] - self.data['LOESS_pred']
+        self.data['LOESS_z'] = self.data['LOESS_residuals']/self.data['LOESS_sigma']
+
+        self.RMSE_LOESS = RMSE(self.data[self.score].values[ctr_mask],m[ctr_mask])
+        self.SMSE_LOESS = SMSE(self.data[self.score].values[ctr_mask],m[ctr_mask])
 
         self._loess_rank()
 
@@ -417,13 +406,18 @@ class PyNM:
         result[max_mask] = 100
         result[min_mask] = 0
         result[else_mask] = np.array([np.argmin(self.data[self.score][i] >= centiles[i]) for i in range(self.data.shape[0])])[else_mask]
+
         self.data['Centiles'] = result
         self.data['Centiles_pred'] = np.array([centiles[i, 50] for i in range(self.data.shape[0])])
+        # TODO: Correct Centiles_sigma
+        # avg of 68 - 50th percentile and 50-32th percentile (assume normal) (DOESN"T MAKE SENSE PLOTTED)
+        self.data['Centiles_sigma'] = ((np.array([centiles[i, 68] for i in range(self.data.shape[0])]) - self.data['Centiles_pred'].values)
+                                        - (np.array([centiles[i, 32] for i in range(self.data.shape[0])]) - self.data['Centiles_pred'].values))/2
         self.data['Centiles_residuals'] = self.data[self.score] - self.data['Centiles_pred']
+        self.data['Centiles_z'] = self.data['Centiles_residuals']/self.data['Centiles_sigma']
 
-        score = self._get_score()
-        res = self.data['Centiles_residuals'].to_numpy(dtype=np.float64)
-        self.SMSE_Centiles = (np.mean(res[ctr_mask]**2)**0.5) / np.std(score[ctr_mask])
+        self.RMSE_Centiles = RMSE(self.data[self.score].values[ctr_mask],self.data['Centiles_pred'].values[ctr_mask])
+        self.SMSE_Centiles = SMSE(self.data[self.score].values[ctr_mask],self.data['Centiles_pred'].values[ctr_mask])
 
         self._centiles_rank()
 
@@ -436,7 +430,7 @@ class PyNM:
             Confounds with categorical values dummy encoded. Dummy encoding keeps k-1
             dummies out of k categorical levels.
         """
-        conf_clean, conf_cat = _read_confounds(self.confounds)
+        conf_clean, conf_cat = read_confounds(self.confounds)
         conf_mat = pd.get_dummies(self.data[conf_clean], columns=conf_cat, 
                                   drop_first=True)
         return conf_mat.to_numpy()
@@ -548,19 +542,15 @@ class PyNM:
             y_pred, sigma = gp.predict(conf_mat, return_std=True)
             y_true = self.data[self.score].to_numpy().reshape(-1,1)
             residuals = y_true - y_pred
-            self.SMSE_GP = (np.mean((residuals)**2))**0.5 / \
-                np.std(score[ctr_mask])
-
-            SLL = ( 0.5 * np.log(2 * np.pi * sigma**2) +
-                   (residuals)**2 / (2 * sigma**2) -
-                   (y_true - np.mean(score[ctr_mask]))**2 /
-                   (2 * np.std(score[ctr_mask])) )
-
-            self.MSLL_GP = np.mean(SLL)
 
             self.data['GP_pred'] = y_pred
             self.data['GP_sigma'] = sigma
             self.data['GP_residuals'] = residuals
+            self.data['GP_z'] = self.data['GP_residuals'] / self.data['GP_sigma']
+
+            self.RMSE_GP = RMSE(y_true[ctr_mask],y_pred[ctr_mask])
+            self.SMSE_GP = SMSE(y_true[ctr_mask],y_pred[ctr_mask])
+            self.MSLL_GP = MSLL(y_true[ctr_mask],y_pred[ctr_mask],sigma[ctr_mask])
 
         self._test_gp_residuals(conf_mat)
 
@@ -608,21 +598,17 @@ class PyNM:
             y_true = score
             residuals = (y_true - y_pred).astype(float)
 
-            self.SMSE_GP = (np.mean(y_true - y_pred)**2)**0.5 / np.std(score[ctr_mask])
-
-            SLL = (0.5 * np.log(2 * np.pi * sigma.numpy()**2) +
-                   (y_true - y_pred)**2 / (2 * sigma.numpy()**2) -
-                   (y_true - np.mean(score[ctr_mask]))**2 /
-                   (2 * np.std(score[ctr_mask])) )
-
-            self.MSLL_GP = np.mean(SLL)
-
             self.data['GP_pred'] = y_pred
             self.data['GP_sigma'] = sigma.numpy()
             self.data['GP_residuals'] = residuals
-            return svgp.loss
+            self.data['GP_z'] = self.data['GP_residuals']/self.data['GP_sigma']
+
+            self.RMSE_GP = RMSE(y_true[ctr_mask],y_pred[ctr_mask])
+            self.SMSE_GP = SMSE(y_true[ctr_mask],y_pred[ctr_mask])
+            self.MSLL_GP = MSLL(y_true[ctr_mask],y_pred[ctr_mask],sigma.numpy()[ctr_mask])
+
     
-    def gamlss_normative_model(self,mu=None,sigma=None,nu=None,tau=None,family='SHASHo2',what='mu',lib_loc=None):
+    def gamlss_normative_model(self,mu=None,sigma=None,nu=None,tau=None,family='SHASHo2',lib_loc=None):
         """Compute GAMLSS normative model.
         
         Parameters
@@ -631,23 +617,20 @@ class PyNM:
             Formula for mu (location) parameter of GAMLSS. If None, formula for score is sum of confounds
             with non-categorical columns as smooth functions, e.g. "score ~ ps(age) + sex".
         sigma: str or None
-            Formula for mu (location) parameter of GAMLSS. If None, formula is '~ 1'.
+            Formula for sigma (scale) parameter of GAMLSS. If None, formula is '~ 1'.
         nu: str or None
-            Formula for mu (location) parameter of GAMLSS. If None, formula is '~ 1'.
+            Formula for nu (skewness) parameter of GAMLSS. If None, formula is '~ 1'.
         tau: str or None
-            Formula for mu (location) parameter of GAMLSS. If None, formula is '~ 1'.
+            Formula for tau (kurtosis) parameter of GAMLSS. If None, formula is '~ 1'.
         family: str,default='SHASHo2'
             Family of distributions to use for fitting, default is 'SHASHo2'. See R documentation for GAMLSS package for other available families of distributions.
-        what: str, default='mu'
-            What parameter to predict, can be 'mu', 'sigma', 'nu' or 'tau'.
         lib_loc: str, default=None
             Path to location of installed GAMLSS package.
         
         Notes
         -----
         If using 'random()' to model a random effect in any of the formulas, it must be passed a column of the dataframe with categorical values
-        as a factor: e.g. 'random(as.factor(COL))'. Using a random effect also impacts which parameter it is possible to predict i.e. set the 'what'
-        argument accordingly.
+        as a factor: e.g. 'random(as.factor(COL))'.
         """
         try:
             from pynm.gamlss import GAMLSS
@@ -657,17 +640,24 @@ class PyNM:
             # get proband and control masks
             ctr_mask, _ = self._get_masks()
 
-            gamlss = GAMLSS(mu=mu,sigma=sigma,nu=nu,tau=tau,family=family,what=what,lib_loc=lib_loc,score=self.score,confounds=self.confounds)
-            nan_cols = ['LOESS_pred','LOESS_residuals','LOESS_rank','Centiles_pred','Centiles_residuals','Centiles','Centiles_rank']
+            gamlss = GAMLSS(mu=mu,sigma=sigma,nu=nu,tau=tau,family=family,lib_loc=lib_loc,score=self.score,confounds=self.confounds)
+
+            nan_cols = ['LOESS_pred','LOESS_residuals','LOESS_z','LOESS_rank','LOESS_sigma',
+            'Centiles_pred','Centiles_residuals','Centiles_z','Centiles','Centiles_rank','Centiles_sigma']
             gamlss_data = self.data[[c for c in self.data.columns if c not in nan_cols]]
+
             gamlss.fit(gamlss_data[ctr_mask])
-            res = gamlss.predict(gamlss_data)
-
-            self.data['GAMLSS_pred'] = res
+            mu_pred = gamlss.predict(gamlss_data,what='mu')
+            sigma_pred = gamlss.predict(gamlss_data,what='sigma')
+            
+            self.data['GAMLSS_pred'] = mu_pred
+            self.data['GAMLSS_sigma'] = sigma_pred
             self.data['GAMLSS_residuals'] = self.data[self.score] - self.data['GAMLSS_pred']
-            self.SMSE_GAMLSS = (np.mean(self.data[self.score][ctr_mask] - self.data['GAMLSS_pred'][ctr_mask])**2)**0.5 / np.std(self.data[self.score][ctr_mask])
+            self.data['GAMLSS_z'] = self.data['GAMLSS_residuals']/self.data['GAMLSS_sigma']
 
-            #TODO: test residuals?
+            self.RMSE_GAMLSS = RMSE(mu_pred[ctr_mask],self.data[self.score].values[ctr_mask])
+            self.SMSE_GAMLSS = SMSE(mu_pred[ctr_mask],self.data[self.score].values[ctr_mask])
+            self.MSLL_GAMLSS = MSLL(mu_pred[ctr_mask],self.data[self.score].values[ctr_mask],sigma_pred[ctr_mask])
 
     def _plot(self, ax,kind=None,gp_xaxis=None,gamlss_xaxis=None):
         """ Plot the data with the normative model overlaid.
@@ -695,45 +685,37 @@ class PyNM:
         elif kind == 'LOESS':
             sns.scatterplot(data=self.data, x=self.conf, y=self.score,
                              hue=self.group, style=self.group,ax=ax)
-            #tmp=self.data.sort_values(self.conf)
-            ax.plot(self.bins, self.zm, '-k')
-            #ax.plot(tmp[self.conf], tmp['LOESS_pred'], '-k')
-            #plt.fill_between(np.squeeze(self.bins),
-            #                 np.squeeze(self.zm) - 2 * np.squeeze(self.zstd),
-            #                 np.squeeze(self.zm) + 2 * np.squeeze(self.zstd),
-            #                 alpha=.2, fc='grey', ec='None', label='95% CI')
+            tmp=self.data.sort_values(self.conf)
+            ax.plot(tmp[self.conf], tmp['LOESS_pred'], '-k')
+            ax.plot(tmp[self.conf], tmp['LOESS_pred'] - 1.96*tmp['LOESS_sigma'], '--k')
+            ax.plot(tmp[self.conf], tmp['LOESS_pred'] + 1.96*tmp['LOESS_sigma'], '--k')
         elif kind == 'Centiles':
             sns.scatterplot(data=self.data, x=self.conf, y=self.score,
                                 hue=self.group, style=self.group,ax=ax)
-            #tmp=self.data.sort_values(self.conf)
-            ax.plot(self.bins, self.z[:, 50], '--k')
-            #ax.plot(tmp[self.conf], tmp['LOESS_pred'], '-k')
-            #plt.fill_between(np.squeeze(self.bins),
-            #                 np.squeeze(self.z[:, 5]),
-            #                 np.squeeze(self.z[:, 95]),
-            #                 alpha=.2, fc='grey', ec='None', label='95% CI')
+            tmp=self.data.sort_values(self.conf)
+            ax.plot(tmp[self.conf], tmp['Centiles_pred'], '-k')
+            ax.plot(self.bins,self.z[:, 5],'--k')
+            ax.plot(self.bins,self.z[:, 95],'--k')
+            #ax.plot(tmp[self.conf], tmp['Centiles_pred'] - 1.96*tmp['Centiles_sigma'], '--k') #THIS IS NONSENSICAL
+            #ax.plot(tmp[self.conf], tmp['Centiles_pred'] + 1.96*tmp['Centiles_sigma'], '--k')
         elif kind == 'GP':
             if gp_xaxis is None:
                 gp_xaxis = self.conf
             sns.scatterplot(data=self.data, x=gp_xaxis, y=self.score,
                                 hue=self.group, style=self.group,ax=ax)
             tmp=self.data.sort_values(gp_xaxis)
-            #plt.fill_between(np.squeeze(tmp[gp_xaxis]),
-            #                 np.squeeze(tmp['GP_pred']) - 2*np.squeeze(tmp['GP_sigma']),
-            #                 np.squeeze(tmp['GP_pred']) + 2*np.squeeze(tmp['GP_sigma']),
-            #                 alpha=.2, fc='grey', ec='None', label='95% CI')
             ax.plot(tmp[gp_xaxis], tmp['GP_pred'], '-k')
+            ax.plot(tmp[self.conf], tmp['GP_pred'] - 1.96*tmp['GP_sigma'], '--k')
+            ax.plot(tmp[self.conf], tmp['GP_pred'] + 1.96*tmp['GP_sigma'], '--k')
         elif kind == 'GAMLSS':
             if gamlss_xaxis is None:
                 gamlss_xaxis = self.conf
             sns.scatterplot(data=self.data, x=gamlss_xaxis, y=self.score,
                                 hue=self.group, style=self.group,ax=ax)
             tmp=self.data.sort_values(gamlss_xaxis)
-            #plt.fill_between(np.squeeze(tmp[gp_xaxis]),
-            #                 np.squeeze(tmp['GP_pred']) - 2*np.squeeze(tmp['GP_sigma']),
-            #                 np.squeeze(tmp['GP_pred']) + 2*np.squeeze(tmp['GP_sigma']),
-            #                 alpha=.2, fc='grey', ec='None', label='95% CI')
             ax.plot(tmp[gamlss_xaxis], tmp['GAMLSS_pred'], '-k')
+            ax.plot(tmp[self.conf], tmp['GAMLSS_pred'] - 1.96*tmp['GAMLSS_sigma'], '--k')
+            ax.plot(tmp[self.conf], tmp['GAMLSS_pred'] + 1.96*tmp['GAMLSS_sigma'], '--k')
         return ax
 
     def plot(self, kind=None,gp_xaxis=None,gamlss_xaxis=None):
