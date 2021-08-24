@@ -399,6 +399,9 @@ class PyNM:
         dists = [np.abs(conf - self.bins) for conf in self.data[self.conf]]
         idx = [np.argmin(d) for d in dists]
         centiles = np.array([self.z[i] for i in idx])
+        centiles_50 = np.array([centiles[i, 50] for i in range(self.data.shape[0])])
+        centiles_68 = np.array([centiles[i, 68] for i in range(self.data.shape[0])])
+        centiles_32 = np.array([centiles[i, 32] for i in range(self.data.shape[0])])
         result = np.zeros(centiles.shape[0])
         max_mask = self.data[self.score] >= np.max(centiles, axis=1)
         min_mask = self.data[self.score] < np.min(centiles, axis=1)
@@ -408,11 +411,12 @@ class PyNM:
         result[else_mask] = np.array([np.argmin(self.data[self.score][i] >= centiles[i]) for i in range(self.data.shape[0])])[else_mask]
 
         self.data['Centiles'] = result
-        self.data['Centiles_pred'] = np.array([centiles[i, 50] for i in range(self.data.shape[0])])
+        self.data['Centiles_pred'] = centiles_50
         # TODO: Correct Centiles_sigma
         # avg of 68 - 50th percentile and 50-32th percentile (assume normal) (DOESN"T MAKE SENSE PLOTTED)
-        self.data['Centiles_sigma'] = ((np.array([centiles[i, 68] for i in range(self.data.shape[0])]) - self.data['Centiles_pred'].values)
-                                        - (np.array([centiles[i, 32] for i in range(self.data.shape[0])]) - self.data['Centiles_pred'].values))/2
+        self.data['Centiles_95'] = np.array([centiles[i, 95] for i in range(self.data.shape[0])])
+        self.data['Centiles_5'] = np.array([centiles[i, 5] for i in range(self.data.shape[0])])
+        self.data['Centiles_sigma'] = (centiles_68 - centiles_32)/2
         self.data['Centiles_residuals'] = self.data[self.score] - self.data['Centiles_pred']
         self.data['Centiles_z'] = self.data['Centiles_residuals']/self.data['Centiles_sigma']
 
@@ -696,8 +700,8 @@ class PyNM:
                                 hue=self.group, style=self.group,ax=ax)
             tmp=self.data.sort_values(self.conf)
             ax.plot(tmp[self.conf], tmp['Centiles_pred'], '-k',label='Prediction')
-            ax.plot(self.bins,self.z[:, 5],'--k')
-            ax.plot(self.bins,self.z[:, 95],'--k',label='95% CI')
+            ax.plot(tmp[self.conf], tmp['Centiles_5'],'--k')
+            ax.plot(tmp[self.conf], tmp['Centiles_95'],'--k',label='95% CI')
             handles, labels = ax.get_legend_handles_labels()
             ax.legend(handles, labels)
         elif kind == 'GP':
