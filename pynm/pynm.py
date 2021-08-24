@@ -402,6 +402,7 @@ class PyNM:
         centiles_50 = np.array([centiles[i, 50] for i in range(self.data.shape[0])])
         centiles_68 = np.array([centiles[i, 68] for i in range(self.data.shape[0])])
         centiles_32 = np.array([centiles[i, 32] for i in range(self.data.shape[0])])
+
         result = np.zeros(centiles.shape[0])
         max_mask = self.data[self.score] >= np.max(centiles, axis=1)
         min_mask = self.data[self.score] < np.min(centiles, axis=1)
@@ -647,7 +648,8 @@ class PyNM:
             gamlss = GAMLSS(mu=mu,sigma=sigma,nu=nu,tau=tau,family=family,lib_loc=lib_loc,score=self.score,confounds=self.confounds)
 
             nan_cols = ['LOESS_pred','LOESS_residuals','LOESS_z','LOESS_rank','LOESS_sigma',
-            'Centiles_pred','Centiles_residuals','Centiles_z','Centiles','Centiles_rank','Centiles_sigma']
+            'Centiles_pred','Centiles_residuals','Centiles_z','Centiles','Centiles_rank','Centiles_sigma',
+            'Centiles_95','Centiles_5']
             gamlss_data = self.data[[c for c in self.data.columns if c not in nan_cols]]
 
             gamlss.fit(gamlss_data[ctr_mask])
