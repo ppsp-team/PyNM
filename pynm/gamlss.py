@@ -4,31 +4,7 @@ from rpy2.robjects.packages import importr
 from rpy2.robjects import numpy2ri
 from rpy2.robjects import pandas2ri
 from rpy2.robjects import r
-
-def _read_confounds(confounds):
-    """ Process input list of confounds.
-
-    Parameters
-    ----------
-    confounds : list of str
-        List of confounds with categorical variables indicated by c(var) ('c' must be lower case).
-
-    Returns
-    -------
-    list
-        List of all confounds without wrapper on categorical variables: c(var) -> var.
-    list
-        List of only categorical confounds without wrapper.
-    """
-    categorical = []
-    clean_confounds = []
-    for conf in confounds:
-        if ((conf[0:2] == 'c(') & (conf[-1] == ')')):
-            categorical.append(conf[2:-1])
-            clean_confounds.append(conf[2:-1])
-        else:
-            clean_confounds.append(conf)
-    return clean_confounds, categorical
+from pynm.util import read_confounds
 
 class GAMLSS:
     """Class for GAMLSS model.
@@ -44,20 +20,18 @@ class GAMLSS:
         mu_f: R formula
             Formula for mu (location) parameter.
         sigma_f: R formula
-            Formula for sigma (shape) parameter.
+            Formula for sigma (scale) parameter.
         nu_f: R formula
-            Formula for nu parameter.
+            Formula for nu (skewness) parameter.
         tau_f: R formula
-            Formula for tau parameter.
+            Formula for tau (kurtosis) parameter.
         rfamily: R object
             Family of distributions to use for fitting.
-        what: str
-            What parameter to predict, can be 'mu', 'sigma', 'nu' or 'tau'.
         model: R object
             Fitted gamlss model.
         """
 
-    def __init__(self,mu=None,sigma=None,nu=None,tau=None,family='SHASHo2',what='mu',lib_loc=None,score=None,confounds=None):
+    def __init__(self,mu=None,sigma=None,nu=None,tau=None,family='SHASHo2',lib_loc=None,score=None,confounds=None):
         """Create GAMLSS object. Formulas must be written for R, using functions available in the GAMLSS package.
         
         Parameters
@@ -66,15 +40,13 @@ class GAMLSS:
             Formula for mu (location) parameter of GAMLSS. If None, formula for score is sum of confounds
             with non-categorical columns as smooth functions, e.g. "score ~ ps(age) + sex".
         sigma: str, default=None
-            Formula for sigma (shape) parameter of GAMLSS. If None, formula is '~ 1'.
+            Formula for sigma (scale) parameter of GAMLSS. If None, formula is '~ 1'.
         nu: str, default=None
-            Formula for nu parameter of GAMLSS. If None, formula is '~ 1'.
+            Formula for nu (skewness) parameter of GAMLSS. If None, formula is '~ 1'.
         tau: str, default=None
-            Formula for tau parameter of GAMLSS. If None, formula is '~ 1'.
+            Formula for tau (kurtosis) parameter of GAMLSS. If None, formula is '~ 1'.
         family: str,default='SHASHo2'
             Family of distributions to use for fitting, default is 'SHASHo2'. See R documentation for GAMLSS package for other available families of distributions.
-        what: str, default='mu'
-            What parameter to predict, can be 'mu', 'sigma', 'nu' or 'tau'.
         lib_loc: str, default=None
             Path to location of installed GAMLSS package.
         score: str, default=None
@@ -100,7 +72,6 @@ class GAMLSS:
             self.gamlss_dist = importr('gamlss.dist',lib_loc=lib_loc)
             self.gamlss = importr('gamlss',lib_loc=lib_loc)
         
-        self.what = what
         self.score = score
         self.confounds = confounds
         self.mu_f,self.sigma_f,self.nu_f,self.tau_f = self._get_r_formulas(mu,sigma,nu,tau)
@@ -118,11 +89,11 @@ class GAMLSS:
             Formula for mu (location) parameter of GAMLSS. If None, formula for score is sum of confounds
             with non-categorical columns as smooth functions, e.g. "score ~ ps(age) + sex".
         sigma: str or None
-            Formula for mu (location) parameter of GAMLSS. If None, formula is '~ 1'.
+            Formula for sigma (scale) parameter of GAMLSS. If None, formula is '~ 1'.
         nu: str or None
-            Formula for mu (location) parameter of GAMLSS. If None, formula is '~ 1'.
+            Formula for nu (skewness) parameter of GAMLSS. If None, formula is '~ 1'.
         tau: str or None
-            Formula for mu (location) parameter of GAMLSS. If None, formula is '~ 1'.
+            Formula for tau (kurtosis) parameter of GAMLSS. If None, formula is '~ 1'.
 
         Raises
         ------
@@ -139,7 +110,7 @@ class GAMLSS:
         if mu is None:
             if (self.score is None) or (self.confounds is None):
                 raise ValueError('If mu is None, both score and confounds must be provided i.e. not None.')
-            _,cat = _read_confounds(self.confounds)
+            _,cat = read_confounds(self.confounds)
             formula_conf = ['ps({})'.format(conf) for conf in self.confounds if not conf[2:-1] in cat] + cat
             mu = '{} ~ {}'.format(self.score,' + '.join(formula_conf))
         if sigma is None:
@@ -180,7 +151,7 @@ class GAMLSS:
                     family=self.rfamily,
                     data=train_data)
     
-    def predict(self,test_data):
+    def predict(self,test_data,what='mu'):
         """Predict from fitted gamlss model.
         
         Parameters
@@ -190,5 +161,5 @@ class GAMLSS:
         what: str
             Which parameter to predict, can be 'mu','sigma', 'nu', or 'tau'.
         """
-        res = self.gamlss.predict_gamlss(self.model,newdata=test_data,what=self.what)
+        res = self.gamlss.predict_gamlss(self.model,newdata=test_data,what=what)
         return res
