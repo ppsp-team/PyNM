@@ -712,9 +712,14 @@ class PyNM:
             sns.scatterplot(data=self.data, x=gp_xaxis, y=self.score,
                                 hue=self.group, style=self.group,ax=ax)
             tmp=self.data.sort_values(gp_xaxis)
-            ax.plot(tmp[gp_xaxis], tmp['GP_pred'], '-k',label='Prediction')
-            ax.plot(tmp[self.conf], tmp['GP_pred'] - 1.96*tmp['GP_sigma'], '--k')
-            ax.plot(tmp[self.conf], tmp['GP_pred'] + 1.96*tmp['GP_sigma'], '--k',label='95% CI')
+            if len(self.confounds) == 1:
+                ax.plot(tmp[gp_xaxis], tmp['GP_pred'], '-k',label='Prediction')
+                ax.plot(tmp[self.conf], tmp['GP_pred'] - 1.96*tmp['GP_sigma'], '--k')
+                ax.plot(tmp[self.conf], tmp['GP_pred'] + 1.96*tmp['GP_sigma'], '--k',label='95% CI')
+            else:
+                ax.scatter(tmp[gp_xaxis], tmp['GP_pred'], label='Prediction',color='black',marker='_',s=25)
+                ax.scatter(tmp[self.conf], tmp['GP_pred'] - 1.96*tmp['GP_sigma'],color='black',s=0.2)
+                ax.scatter(tmp[self.conf], tmp['GP_pred'] + 1.96*tmp['GP_sigma'], label='95% CI',color='black',s=0.2)
             handles, labels = ax.get_legend_handles_labels()
             ax.legend(handles, labels)
         elif kind == 'GAMLSS':
@@ -775,7 +780,7 @@ class PyNM:
         else:
             raise ValueError('Plot kind not recognized, must be a valid subset of ["Centiles","LOESS","GP","GAMLSS"] or None.')
 
-    def _plot_res(self, ax,kind=None, confound=None):
+    def _plot_res_z(self, ax,kind=None, confound=None,z=False):
         """ Plot the residuals of the normative model.
 
         Parameters
@@ -791,23 +796,85 @@ class PyNM:
         if confound is None:
             confound = np.zeros(self.data.shape[0])
         if kind == 'LOESS':
-            sns.violinplot(x=confound, y='LOESS_residuals',
-                           data=self.data, split=True, palette='Blues', hue=self.group,ax=ax)
+            if z:
+                sns.violinplot(x=confound, y='LOESS_z',
+                            data=self.data, split=True, palette='Blues', hue=self.group,ax=ax)
+            else:
+                sns.violinplot(x=confound, y='LOESS_residuals',
+                            data=self.data, split=True, palette='Blues', hue=self.group,ax=ax)
             ax.set_title(f"{kind} SMSE={np.round(self.SMSE_LOESS,3)}")
         if kind == 'Centiles':
-            sns.violinplot(x=confound, y='Centiles_residuals',
+            if z:
+                sns.violinplot(x=confound, y='Centiles_z',
                            data=self.data, split=True, palette='Blues', hue=self.group,ax=ax)
+            else:
+                sns.violinplot(x=confound, y='Centiles_residuals',
+                            data=self.data, split=True, palette='Blues', hue=self.group,ax=ax)
             ax.set_title(f"{kind} SMSE={np.round(self.SMSE_Centiles,3)}")
         if kind == 'GP':
-            sns.violinplot(x=confound, y='GP_residuals',
-                           data=self.data, split=True, palette='Blues', hue=self.group,ax=ax)
+            if z:
+                    sns.violinplot(x=confound, y='GP_z',
+                            data=self.data, split=True, palette='Blues', hue=self.group,ax=ax)
+            else:
+                sns.violinplot(x=confound, y='GP_residuals',
+                            data=self.data, split=True, palette='Blues', hue=self.group,ax=ax)
             ax.set_title(f"{kind} SMSE={np.round(self.SMSE_GP,3)} - MSLL={np.round(self.MSLL_GP,3)}")
         if kind == 'GAMLSS':
-            sns.violinplot(x=confound, y='GAMLSS_residuals',
-                           data=self.data, split=True, palette='Blues', hue=self.group,ax=ax)
+            if z:
+                sns.violinplot(x=confound, y='GAMLSS_z',
+                            data=self.data, split=True, palette='Blues', hue=self.group,ax=ax)
+            else:
+                sns.violinplot(x=confound, y='GAMLSS_residuals',
+                            data=self.data, split=True, palette='Blues', hue=self.group,ax=ax)
             ax.set_title(f"{kind} SMSE={np.round(self.SMSE_GAMLSS,3)}")
         if not isinstance(confound,str):
             ax.set_xticklabels([''])
+    
+    def _plot_res_z_cont(self, ax,kind=None, confound=None,z=False):
+        """ Plot the residuals of the normative model.
+
+        Parameters
+        ----------
+        ax: matplotlib axis
+            Axis on which to plot.
+        kind: str, default=None
+            Type of plot among "LOESS" (local polynomial), "Centiles", "GP" (gaussian processes),
+            or "GAMLSS" (generalized additive models of location scale and shape).
+        confound: str or None
+            Which confound to use as xaxis of plot, must be continuous.
+        """
+        if kind == 'LOESS':
+            if z:
+                sns.scatterplot(x=confound, y='LOESS_z',
+                                data=self.data, hue=self.group,ax=ax)
+            else:
+                sns.scatterplot(x=confound, y='LOESS_residuals',
+                                data=self.data, hue=self.group,ax=ax)
+            ax.set_title(f"{kind} SMSE={np.round(self.SMSE_LOESS,3)}")
+        if kind == 'Centiles':
+            if z:
+                sns.scatterplot(x=confound, y='Centiles_z',
+                            data=self.data, hue=self.group,ax=ax)
+            else:
+                sns.scatterplot(x=confound, y='Centiles_residuals',
+                                data=self.data, hue=self.group,ax=ax)
+            ax.set_title(f"{kind} SMSE={np.round(self.SMSE_Centiles,3)}")
+        if kind == 'GP':
+            if z:
+                sns.scatterplot(x=confound, y='GP_z',
+                                data=self.data, hue=self.group,ax=ax)
+            else:
+                sns.scatterplot(x=confound, y='GP_residuals',
+                                data=self.data, hue=self.group,ax=ax)
+            ax.set_title(f"{kind} SMSE={np.round(self.SMSE_GP,3)} - MSLL={np.round(self.MSLL_GP,3)}")
+        if kind == 'GAMLSS':
+            if z:
+                sns.scatterplot(x=confound, y='GAMLSS_z',
+                                data=self.data, hue=self.group,ax=ax)
+            else:
+                sns.scatterplot(x=confound, y='GAMLSS_residuals',
+                                data=self.data, hue=self.group,ax=ax)
+            ax.set_title(f"{kind} SMSE={np.round(self.SMSE_GAMLSS,3)}")
 
     def plot_res(self, kind=None, confound=None):
         """Plot the residuals of the normative model.
@@ -818,7 +885,7 @@ class PyNM:
             Type of plot, must be a valid subset of ["Centiles","LOESS","GP","GAMLSS"] or None. If None, all available
             results will be plotted, if None are available a ValueError will be raised.
         confound: str, default=None
-            Which confound to use as xaxis of plot, must be categorical or None.
+            Which confound to use as xaxis of plot.
         
         Raises
         ------
@@ -827,6 +894,14 @@ class PyNM:
         ValueError
             No model results found in data.
         """
+        _, cat = read_confounds(self.confounds)
+        if confound is None: 
+            categorical = True
+        elif confound in cat: 
+            categorical = True
+        else: 
+            categorical = False
+
         if kind is None:
             kind = []
             for k in ['LOESS','Centiles','GP','GAMLSS']:
@@ -838,48 +913,20 @@ class PyNM:
         if set(kind).issubset(set(['LOESS','Centiles','GP','GAMLSS'])) and len(kind)>1:
             fig, ax = plt.subplots(1,len(kind),figsize=(len(kind)*5,5))
             for i,k in enumerate(kind):
-                self._plot_res(ax[i],kind=k,confound=confound)
+                if categorical:
+                    self._plot_res_z(ax[i],kind=k,confound=confound)
+                else:
+                    self._plot_res_z_cont(ax[i],kind=k,confound=confound)
             plt.show()
         elif set(kind).issubset(set(['LOESS','Centiles','GP','GAMLSS'])):
             fig, ax = plt.subplots(1,len(kind),figsize=(len(kind)*5,5))
-            self._plot_res(ax,kind=kind[0],confound=confound)
+            if categorical:
+                self._plot_res_z(ax,kind=kind[0],confound=confound)
+            else:
+                self._plot_res_z_cont(ax,kind=kind[0],confound=confound)
             plt.show()
         else:
             raise ValueError('Plot kind not recognized, must be a valid subset of ["Centiles","LOESS","GP","GAMLSS"] or None.')
-    
-    def _plot_z(self, ax,kind=None, confound=None):
-        """ Plot the deviance scores of the normative model.
-
-        Parameters
-        ----------
-        ax: matplotlib axis
-            Axis on which to plot.
-        kind: str, default=None
-            Type of plot among "LOESS" (local polynomial), "Centiles", "GP" (gaussian processes),
-            or "GAMLSS" (generalized additive models of location scale and shape).
-        confound: str or None
-            Which confound to use as xaxis of plot, must be categorical or None.
-        """
-        if confound is None:
-            confound = np.zeros(self.data.shape[0])
-        if kind == 'LOESS':
-            sns.violinplot(x=confound, y='LOESS_z',
-                           data=self.data, split=True, palette='Blues', hue=self.group,ax=ax)
-            ax.set_title(f"{kind} SMSE={np.round(self.SMSE_LOESS,3)}")
-        if kind == 'Centiles':
-            sns.violinplot(x=confound, y='Centiles_z',
-                           data=self.data, split=True, palette='Blues', hue=self.group,ax=ax)
-            ax.set_title(f"{kind} SMSE={np.round(self.SMSE_Centiles,3)}")
-        if kind == 'GP':
-            sns.violinplot(x=confound, y='GP_z',
-                           data=self.data, split=True, palette='Blues', hue=self.group,ax=ax)
-            ax.set_title(f"{kind} SMSE={np.round(self.SMSE_GP,3)} - MSLL={np.round(self.MSLL_GP,3)}")
-        if kind == 'GAMLSS':
-            sns.violinplot(x=confound, y='GAMLSS_z',
-                           data=self.data, split=True, palette='Blues', hue=self.group,ax=ax)
-            ax.set_title(f"{kind} SMSE={np.round(self.SMSE_GAMLSS,3)}")
-        if not isinstance(confound,str):
-            ax.set_xticklabels([''])
 
     def plot_z(self, kind=None, confound=None):
         """Plot the deviance scores of the normative model.
@@ -890,7 +937,7 @@ class PyNM:
             Type of plot, must be a valid subset of ["Centiles","LOESS","GP","GAMLSS"] or None. If None, all available
             results will be plotted, if None are available a ValueError will be raised.
         confound: str, default=None
-            Which confound to use as xaxis of plot, must be categorical or None.
+            Which confound to use as xaxis of plot.
         
         Raises
         ------
@@ -899,6 +946,14 @@ class PyNM:
         ValueError
             No model results found in data.
         """
+        _, cat = read_confounds(self.confounds)
+        if confound is None: 
+            categorical = True
+        elif confound in cat: 
+            categorical = True
+        else: 
+            categorical = False
+
         if kind is None:
             kind = []
             for k in ['LOESS','Centiles','GP','GAMLSS']:
@@ -910,11 +965,17 @@ class PyNM:
         if set(kind).issubset(set(['LOESS','Centiles','GP','GAMLSS'])) and len(kind)>1:
             fig, ax = plt.subplots(1,len(kind),figsize=(len(kind)*5,5))
             for i,k in enumerate(kind):
-                self._plot_z(ax[i],kind=k,confound=confound)
+                if categorical:
+                    self._plot_res_z(ax[i],kind=k,confound=confound,z=True)
+                else:
+                    self._plot_res_z_cont(ax[i],kind=k,confound=confound,z=True)
             plt.show()
         elif set(kind).issubset(set(['LOESS','Centiles','GP','GAMLSS'])):
             fig, ax = plt.subplots(1,len(kind),figsize=(len(kind)*5,5))
-            self._plot_z(ax,kind=kind[0],confound=confound)
+            if categorical:
+                self._plot_res_z(ax,kind=kind[0],confound=confound,z=True)
+            else:
+                self._plot_res_z_cont(ax[i],kind=k,confound=confound,z=True)
             plt.show()
         else:
             raise ValueError('Plot kind not recognized, must be a valid subset of ["Centiles","LOESS","GP","GAMLSS"] or None.')
