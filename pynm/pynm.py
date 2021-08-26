@@ -497,7 +497,7 @@ class PyNM:
         if p_het < 0.05:
             warnings.warn("The residuals are heteroskedastic!")
         
-    def gp_normative_model(self, length_scale=1, nu=2.5, method='auto', batch_size=256, n_inducing=500, num_epochs=20):
+    def gp_normative_model(self, length_scale=1, nu=2.5, length_scale_bounds=(1e-5,1e5),method='auto', batch_size=256, n_inducing=500, num_epochs=20):
         """ Compute gaussian process normative model. Gaussian process regression is computed using
         the Matern Kernel with an added constant and white noise. For Matern kernel see scikit-learn documentation:
         https://scikit-learn.org/stable/modules/generated/sklearn.gaussian_process.kernels.Matern.html.
@@ -508,6 +508,8 @@ class PyNM:
             Length scale parameter of Matern kernel.
         nu: float, default=2.5
             Nu parameter of Matern kernel.
+        length_scale_bounds: pair of floats >= 0 or 'fixed', default=(1e-5, 1e5)
+            The lower and upper bound on length_scale. If set to 'fixed', ‘length_scale’ cannot be changed during hyperparameter tuning.
         method: str, default='auto'
             Which method to use, can be 'exact' for exact GP regression, 'approx' for SVGP,
             or 'auto' which will set the method according to the size of the data.
@@ -539,7 +541,7 @@ class PyNM:
             X = conf_mat[ctr_mask]
 
             # Fit normative model on controls
-            kernel = ConstantKernel() + WhiteKernel(noise_level=1) + Matern(length_scale=length_scale, nu=nu)
+            kernel = ConstantKernel() + WhiteKernel(noise_level=1) + Matern(length_scale=length_scale, nu=nu,length_scale_bounds=length_scale_bounds)
             gp = gaussian_process.GaussianProcessRegressor(kernel=kernel)
             gp.fit(X, y)
 
