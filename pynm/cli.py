@@ -3,7 +3,13 @@ from pynm import pynm
 import pandas as pd
 
 def _cli_parser():
-    """Reads command line arguments and returns input specifications"""
+    """Reads command line arguments and returns input specifications
+
+    Returns
+    -------
+    dict
+        Parsed arguments.
+    """
     parser = ArgumentParser()
     parser.add_argument("--pheno_p",dest='pheno_p',required=True,
                         help="Path to phenotype data. Data must be in a .csv file.")
@@ -56,6 +62,10 @@ def _cli_parser():
     parser.add_argument("--gp_length_scale",default=1,dest='gp_length_scale',
                         help="Length scale of Matern kernel for exact model. "
                             "See documentation for details. Default value is 1.")
+    parser.add_argument("--gp_length_scale_bounds",default=(1e-5,1e5),dest='gp_length_scale_bounds', nargs='*',
+                        help="The lower and upper bound on length_scale. If set to 'fixed', "
+                        "length_scale cannot be changed during hyperparameter tuning. "
+                        "See documentation for details. Default value is (1e-5,1e5).")
     parser.add_argument("--gp_nu",default=2.5,dest='nu',
                         help="Nu of Matern kernel for exact and SVGP model. "
                             "See documentation for details. Default value is 2.5.")
@@ -81,6 +91,29 @@ def _cli_parser():
                         help="Path to location of installed GAMLSS package. Default is None.")
     return parser.parse_args()
 
+def get_bounds(bounds):
+    """Converts gp_length_scale_bounds parameter to appropriate type.
+
+    Returns
+    -------
+    pair of floats >= 0 or 'fixed'
+        Appropriate argument for PyNM.gp_normative_model.
+    
+    Raises
+    ------
+    ValueError
+        Unrecognized argument for gp_length_scale_bounds.
+    """
+    if isinstance(bounds,list):
+        if len(bounds)==1 and bounds[0]=='fixed':
+            return 'fixed'
+        elif len(bounds)==2:
+            return (float(bounds[0]),float(bounds[1]))
+        else:
+            raise ValueError('Unrecognized argument for gp_length_scale_bounds.')
+    else:
+        return bounds
+        
 def main():
     params = vars(_cli_parser())
     
@@ -98,7 +131,11 @@ def main():
         m.centiles_normative_model()
         m.bins_num()
     if params['GP']:   
-        m.gp_normative_model(length_scale=params['gp_length_scale'],nu=params['gp_nu'], 
+        gp_length_scale_bounds = get_bounds(params['gp_length_scale_bounds'])
+        print(gp_length_scale_bounds)
+        print(type(gp_length_scale_bounds))
+        m.gp_normative_model(length_scale=params['gp_length_scale'],
+                        length_scale_bounds = gp_length_scale_bounds, nu=params['gp_nu'], 
                         method=params['gp_method'],batch_size=params['gp_batch_size'],
                         n_inducing=params['gp_n_inducing'],num_epochs=params['gp_num_epochs'])
     if args.GAMLSS:
