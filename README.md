@@ -43,10 +43,12 @@ usage: pynm [-h] --pheno_p PHENO_P --out_p OUT_P --confounds CONFOUNDS --score
             [--centiles] [--bin_spacing BIN_SPACING] [--bin_width BIN_WIDTH]
             [--GP] [--gp_method GP_METHOD] [--gp_num_epochs GP_NUM_EPOCHS]
             [--gp_n_inducing GP_N_INDUCING] [--gp_batch_size GP_BATCH_SIZE]
-            [--gp_length_scale GP_LENGTH_SCALE] [--gp_nu NU] [--GAMLSS]
-            [--gamlss_mu GAMLSS_MU] [--gamlss_sigma GAMLSS_SIGMA]
-            [--gamlss_nu GAMLSS_NU] [--gamlss_tau GAMLSS_TAU]
-            [--gamlss_family GAMLSS_FAMILY] [--gamlss_lib_loc GAMLSS_LIB_LOC]
+            [--gp_length_scale GP_LENGTH_SCALE]
+            [--gp_length_scale_bounds [GP_LENGTH_SCALE_BOUNDS [GP_LENGTH_SCALE_BOUNDS ...]]]
+            [--gp_nu NU] [--GAMLSS] [--gamlss_mu GAMLSS_MU]
+            [--gamlss_sigma GAMLSS_SIGMA] [--gamlss_nu GAMLSS_NU]
+            [--gamlss_tau GAMLSS_TAU] [--gamlss_family GAMLSS_FAMILY]
+            [--gamlss_lib_loc GAMLSS_LIB_LOC]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -99,6 +101,11 @@ optional arguments:
   --gp_length_scale GP_LENGTH_SCALE
                         Length scale of Matern kernel for exact model. See
                         documentation for details. Default value is 1.
+  --gp_length_scale_bounds [GP_LENGTH_SCALE_BOUNDS [GP_LENGTH_SCALE_BOUNDS ...]]
+                        The lower and upper bound on length_scale. If set to
+                        'fixed', length_scale cannot be changed during
+                        hyperparameter tuning. See documentation for details.
+                        Default value is (1e-5,1e5).
   --gp_nu NU            Nu of Matern kernel for exact and SVGP model. See
                         documentation for details. Default value is 2.5.
   --GAMLSS              Flag to run GAMLSS.
@@ -129,8 +136,7 @@ optional arguments:
 from pynm.pynm import PyNM
 
 # Initialize pynm w/ data and confounds
-m = PyNM(df,'score','group',
-        confounds = ['age','c(sex)','c(site)'])
+m = PyNM(df,'score','group', confounds = ['age','c(sex)','c(site)'])
 
 # Run models
 m.loess_normative_model()
