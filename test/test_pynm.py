@@ -98,6 +98,14 @@ class TestBasic:
         clean, cat = read_confounds(conf)
         assert clean == ['a', 'b', 'c']
         assert cat == ['a', 'b', 'c']
+    
+    def test_invalid_init(self):
+        data1 = generate_data(randseed=1)
+        data2 = generate_data(randseed=2)
+        data = pd.concat([data1,data2])
+        assert data.index.nunique() != data.shape[0]
+        with pytest.raises(ValueError):
+            m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
 
     def test_set_group_names_PROB_CON_all_CON(self):
         data = generate_data(randseed=1)

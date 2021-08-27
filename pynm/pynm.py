@@ -125,7 +125,14 @@ class PyNM:
             Distance between bins for LOESS & centiles models.
         bin_width: float, default=-1
             Width of bins for LOESS & centiles models.
+        
+        Raises
+        ------
+        ValueError
+            Each row of DataFrame must have a unique index.
         """
+        if data.index.nunique() != data.shape[0]:
+            raise ValueError('Each row of DataFrame must have a unique index.')
         self.data = data.copy()
         self.score = score
         self.group = group
