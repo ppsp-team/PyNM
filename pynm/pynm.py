@@ -723,12 +723,12 @@ class PyNM:
             tmp=self.data.sort_values(gp_xaxis)
             if len(self.confounds) == 1:
                 ax.plot(tmp[gp_xaxis], tmp['GP_pred'], '-k',label='Prediction')
-                ax.plot(tmp[self.conf], tmp['GP_pred'] - 1.96*tmp['GP_sigma'], '--k')
-                ax.plot(tmp[self.conf], tmp['GP_pred'] + 1.96*tmp['GP_sigma'], '--k',label='95% CI')
+                ax.plot(tmp[gp_xaxis], tmp['GP_pred'] - 1.96*tmp['GP_sigma'], '--k')
+                ax.plot(tmp[gp_xaxis], tmp['GP_pred'] + 1.96*tmp['GP_sigma'], '--k',label='95% CI')
             else:
                 ax.scatter(tmp[gp_xaxis], tmp['GP_pred'], label='Prediction',color='black',marker='_',s=25)
-                ax.scatter(tmp[self.conf], tmp['GP_pred'] - 1.96*tmp['GP_sigma'],color='black',s=0.2)
-                ax.scatter(tmp[self.conf], tmp['GP_pred'] + 1.96*tmp['GP_sigma'], label='95% CI',color='black',s=0.2)
+                ax.scatter(tmp[gp_xaxis], tmp['GP_pred'] - 1.96*tmp['GP_sigma'],color='black',s=0.2)
+                ax.scatter(tmp[gp_xaxis], tmp['GP_pred'] + 1.96*tmp['GP_sigma'], label='95% CI',color='black',s=0.2)
             handles, labels = ax.get_legend_handles_labels()
             ax.legend(handles, labels)
         elif kind == 'GAMLSS':
@@ -737,9 +737,14 @@ class PyNM:
             sns.scatterplot(data=self.data, x=gamlss_xaxis, y=self.score,
                                 hue=self.group, style=self.group,ax=ax)
             tmp=self.data.sort_values(gamlss_xaxis)
-            ax.plot(tmp[gamlss_xaxis], tmp['GAMLSS_pred'], '-k',label='Prediction')
-            ax.plot(tmp[self.conf], tmp['GAMLSS_pred'] - 1.96*tmp['GAMLSS_sigma'], '--k')
-            ax.plot(tmp[self.conf], tmp['GAMLSS_pred'] + 1.96*tmp['GAMLSS_sigma'], '--k',label='95% CI')
+            if len(self.confounds) == 1:
+                ax.plot(tmp[gamlss_xaxis], tmp['GAMLSS_pred'], '-k',label='Prediction')
+                ax.plot(tmp[gamlss_xaxis], tmp['GAMLSS_pred'] - 1.96*tmp['GAMLSS_sigma'], '--k')
+                ax.plot(tmp[gamlss_xaxis], tmp['GAMLSS_pred'] + 1.96*tmp['GAMLSS_sigma'], '--k',label='95% CI')
+            else:
+                ax.scatter(tmp[gamlss_xaxis], tmp['GAMLSS_pred'], label='Prediction',color='black',marker='_',s=25)
+                ax.scatter(tmp[gamlss_xaxis], tmp['GAMLSS_pred'] - 1.96*tmp['GAMLSS_sigma'],color='black',s=0.2)
+                ax.scatter(tmp[gamlss_xaxis], tmp['GAMLSS_pred'] + 1.96*tmp['GAMLSS_sigma'], label='95% CI',color='black',s=0.2)
             handles, labels = ax.get_legend_handles_labels()
             ax.legend(handles, labels)
         return ax
