@@ -36,33 +36,7 @@ from scipy import stats
 
 from sklearn import gaussian_process
 from sklearn.gaussian_process.kernels import Matern, WhiteKernel, ConstantKernel
-
-
-def _read_confounds(confounds):
-    """ Process input list of confounds.
-
-    Parameters
-    ----------
-    confounds : list of str
-        List of confounds with categorical variables indicated by c(var) ('c' must be lower case).
-
-    Returns
-    -------
-    list
-        List of all confounds without wrapper on categorical variables: c(var) -> var.
-    list
-        List of only categorical confounds without wrapper.
-    """
-    categorical = []
-    clean_confounds = []
-    for conf in confounds:
-        if ((conf[0:2] == 'c(') & (conf[-1] == ')')):
-            categorical.append(conf[2:-1])
-            clean_confounds.append(conf[2:-1])
-        else:
-            clean_confounds.append(conf)
-    return clean_confounds, categorical
-
+from pynm.util import * 
 
 class PyNM:
     """ Class to run normative modeling using LOESS, centiles, or GP model.
@@ -105,20 +79,30 @@ class PyNM:
         Confidence interval of each bin.
     z: array
         Centiles for each bin.
+    RMSE_LOESS: float
+        RMSE of LOESS normative model
     SMSE_LOESS: float
-        Mean Square Error of LOESS normative model
+        SMSE of LOESS normative model
+    RMSE_Centiles: float
+        RMSE of Centiles normative model
     SMSE_Centiles: float
-        Mean Square Error of Centiles normative model
+        SMSE of Centiles normative model
+    RMSE_GP: float
+        RMSE of Gaussian Process normative model
     SMSE_GP: float
-        Mean Square Error of Gaussian Process normative model
-    SMSE_GAMLSS: float
-        Mean Square Error of GAMLSS
+        SMSE of Gaussian Process normative model
     MSLL_GP: float
-        Mean Standardized Log Loss of Gaussian Process normative model
+        MSLL of Gaussian Process normative model
+    RMSE_GAMLSS: float
+        RMSE of GAMLSS
+    SMSE_GAMLSS: float
+        SMSE of GAMLSS
+    MSLL_GAMLSS: float
+        MSLL of GAMLSS
     """
 
-    def __init__(self, data, score='score', group='group', confounds=['age', 'c(sex)', 'c(site)'], train_sample='controls',
-                bin_spacing=-1, bin_width=-1):
+    def __init__(self, data, score, group, confounds, 
+                train_sample='controls', bin_spacing=-1, bin_width=-1):
         """ Create a PyNM object.
 
         Parameters
@@ -126,11 +110,11 @@ class PyNM:
         data : dataframe
             Dataset to fit model, must at least contain columns corresponding to 'group',
             'score', and 'conf'.
-        score : str, default='score'
+        score : str
             Label of column from data with score (response variable).
-        group : str, default='group'
+        group : str
             Label of column from data that encodes wether subjects are probands or controls.
-        confounds: list of str, default=['age', 'c(sex)', 'c(site)']
+        confounds: list of str
             List of labels of columns from data with confounds. For GP model all confounds will be used,
             for LOESS and Centiles models only the first is used. For GAMLSS all confounds are used
             unless formulas are specified. Categorical values must be denoted by c(var) ('c' must be lower case).
@@ -141,7 +125,14 @@ class PyNM:
             Distance between bins for LOESS & centiles models.
         bin_width: float, default=-1
             Width of bins for LOESS & centiles models.
+        
+        Raises
+        ------
+        ValueError
+            Each row of DataFrame must have a unique index.
         """
+        if data.index.nunique() != data.shape[0]:
+            raise ValueError('Each row of DataFrame must have a unique index.')
         self.data = data.copy()
         self.score = score
         self.group = group
@@ -158,11 +149,16 @@ class PyNM:
         self.zstd = None
         self.zci = None
         self.z = None
+        self.RMSE_LOESS = None
         self.SMSE_LOESS = None
+        self.RMSE_Centiles = None
         self.SMSE_Centiles = None
+        self.RMSE_GP = None
         self.SMSE_GP = None
-        self.SMSE_GAMLSS = None
         self.MSLL_GP = None
+        self.RMSE_GAMLSS = None
+        self.SMSE_GAMLSS = None
+        self.MSLL_GAMLSS = None
 
         self._set_group_names()
         self._set_group()
@@ -302,17 +298,17 @@ class PyNM:
 
     def _loess_rank(self):
         """ Associate ranks to LOESS normative scores."""
-        self.data.loc[(self.data.LOESS_pred <= -2), 'LOESS_rank'] = -2
-        self.data.loc[(self.data.LOESS_pred > -2) &
-                      (self.data.LOESS_pred <= -1), 'LOESS_rank'] = -1
-        self.data.loc[(self.data.LOESS_pred > -1) &
-                      (self.data.LOESS_pred <= +1), 'LOESS_rank'] = 0
-        self.data.loc[(self.data.LOESS_pred > +1) &
-                      (self.data.LOESS_pred <= +2), 'LOESS_rank'] = 1
-        self.data.loc[(self.data.LOESS_pred > +2), 'LOESS_rank'] = 2
+        self.data.loc[(self.data.LOESS_z <= -2), 'LOESS_rank'] = -2
+        self.data.loc[(self.data.LOESS_z > -2) &
+                      (self.data.LOESS_z <= -1), 'LOESS_rank'] = -1
+        self.data.loc[(self.data.LOESS_z > -1) &
+                      (self.data.LOESS_z <= +1), 'LOESS_rank'] = 0
+        self.data.loc[(self.data.LOESS_z > +1) &
+                      (self.data.LOESS_z <= +2), 'LOESS_rank'] = 1
+        self.data.loc[(self.data.LOESS_z > +2), 'LOESS_rank'] = 2
 
     def loess_normative_model(self):
-        """ Compute classical normative model."""
+        """ Compute LOESS normative model."""
         if self.bins is None:
             self._create_bins()
         
@@ -357,14 +353,14 @@ class PyNM:
         idx = [np.argmin(d) for d in dists]
         m = np.array([self.zm[i] for i in idx])
         std = np.array([self.zstd[i] for i in idx])
-        nmodel = (self.data[self.score] - m) / std
-        self.data['LOESS_pred'] = nmodel
-        #self.data['LOESS_pred'] = m
-        self.data['LOESS_residuals'] = self.data[self.score] - self.data['LOESS_pred']
 
-        score = self._get_score()
-        res = self.data['LOESS_residuals'].to_numpy(dtype=np.float64)
-        self.SMSE_LOESS = (np.mean(res[ctr_mask]**2)**0.5) / np.std(score[ctr_mask])
+        self.data['LOESS_pred'] = m
+        self.data['LOESS_sigma'] = std
+        self.data['LOESS_residuals'] = self.data[self.score] - self.data['LOESS_pred']
+        self.data['LOESS_z'] = self.data['LOESS_residuals']/self.data['LOESS_sigma']
+
+        self.RMSE_LOESS = RMSE(self.data[self.score].values[ctr_mask],m[ctr_mask])
+        self.SMSE_LOESS = SMSE(self.data[self.score].values[ctr_mask],m[ctr_mask])
 
         self._loess_rank()
 
@@ -410,6 +406,10 @@ class PyNM:
         dists = [np.abs(conf - self.bins) for conf in self.data[self.conf]]
         idx = [np.argmin(d) for d in dists]
         centiles = np.array([self.z[i] for i in idx])
+        centiles_50 = np.array([centiles[i, 50] for i in range(self.data.shape[0])])
+        centiles_68 = np.array([centiles[i, 68] for i in range(self.data.shape[0])])
+        centiles_32 = np.array([centiles[i, 32] for i in range(self.data.shape[0])])
+
         result = np.zeros(centiles.shape[0])
         max_mask = self.data[self.score] >= np.max(centiles, axis=1)
         min_mask = self.data[self.score] < np.min(centiles, axis=1)
@@ -417,13 +417,19 @@ class PyNM:
         result[max_mask] = 100
         result[min_mask] = 0
         result[else_mask] = np.array([np.argmin(self.data[self.score][i] >= centiles[i]) for i in range(self.data.shape[0])])[else_mask]
-        self.data['Centiles'] = result
-        self.data['Centiles_pred'] = np.array([centiles[i, 50] for i in range(self.data.shape[0])])
-        self.data['Centiles_residuals'] = self.data[self.score] - self.data['Centiles_pred']
 
-        score = self._get_score()
-        res = self.data['Centiles_residuals'].to_numpy(dtype=np.float64)
-        self.SMSE_Centiles = (np.mean(res[ctr_mask]**2)**0.5) / np.std(score[ctr_mask])
+        self.data['Centiles'] = result
+        self.data['Centiles_pred'] = centiles_50
+        # TODO: Correct Centiles_sigma
+        # avg of 68 - 50th percentile and 50-32th percentile (assume normal) (DOESN"T MAKE SENSE PLOTTED)
+        self.data['Centiles_95'] = np.array([centiles[i, 95] for i in range(self.data.shape[0])])
+        self.data['Centiles_5'] = np.array([centiles[i, 5] for i in range(self.data.shape[0])])
+        self.data['Centiles_sigma'] = (centiles_68 - centiles_32)/2
+        self.data['Centiles_residuals'] = self.data[self.score] - self.data['Centiles_pred']
+        self.data['Centiles_z'] = self.data['Centiles_residuals']/self.data['Centiles_sigma']
+
+        self.RMSE_Centiles = RMSE(self.data[self.score].values[ctr_mask],self.data['Centiles_pred'].values[ctr_mask])
+        self.SMSE_Centiles = SMSE(self.data[self.score].values[ctr_mask],self.data['Centiles_pred'].values[ctr_mask])
 
         self._centiles_rank()
 
@@ -436,7 +442,7 @@ class PyNM:
             Confounds with categorical values dummy encoded. Dummy encoding keeps k-1
             dummies out of k categorical levels.
         """
-        conf_clean, conf_cat = _read_confounds(self.confounds)
+        conf_clean, conf_cat = read_confounds(self.confounds)
         conf_mat = pd.get_dummies(self.data[conf_clean], columns=conf_cat, 
                                   drop_first=True)
         return conf_mat.to_numpy()
@@ -498,7 +504,7 @@ class PyNM:
         if p_het < 0.05:
             warnings.warn("The residuals are heteroskedastic!")
         
-    def gp_normative_model(self, length_scale=1, nu=2.5, method='auto', batch_size=256, n_inducing=500, num_epochs=20):
+    def gp_normative_model(self, length_scale=1, nu=2.5, length_scale_bounds=(1e-5,1e5),method='auto', batch_size=256, n_inducing=500, num_epochs=20):
         """ Compute gaussian process normative model. Gaussian process regression is computed using
         the Matern Kernel with an added constant and white noise. For Matern kernel see scikit-learn documentation:
         https://scikit-learn.org/stable/modules/generated/sklearn.gaussian_process.kernels.Matern.html.
@@ -509,6 +515,8 @@ class PyNM:
             Length scale parameter of Matern kernel.
         nu: float, default=2.5
             Nu parameter of Matern kernel.
+        length_scale_bounds: pair of floats >= 0 or 'fixed', default=(1e-5, 1e5)
+            The lower and upper bound on length_scale. If set to 'fixed', ‘length_scale’ cannot be changed during hyperparameter tuning.
         method: str, default='auto'
             Which method to use, can be 'exact' for exact GP regression, 'approx' for SVGP,
             or 'auto' which will set the method according to the size of the data.
@@ -540,7 +548,7 @@ class PyNM:
             X = conf_mat[ctr_mask]
 
             # Fit normative model on controls
-            kernel = ConstantKernel() + WhiteKernel(noise_level=1) + Matern(length_scale=length_scale, nu=nu)
+            kernel = ConstantKernel() + WhiteKernel(noise_level=1) + Matern(length_scale=length_scale, nu=nu,length_scale_bounds=length_scale_bounds)
             gp = gaussian_process.GaussianProcessRegressor(kernel=kernel)
             gp.fit(X, y)
 
@@ -548,19 +556,15 @@ class PyNM:
             y_pred, sigma = gp.predict(conf_mat, return_std=True)
             y_true = self.data[self.score].to_numpy().reshape(-1,1)
             residuals = y_true - y_pred
-            self.SMSE_GP = (np.mean((residuals)**2))**0.5 / \
-                np.std(score[ctr_mask])
-
-            SLL = ( 0.5 * np.log(2 * np.pi * sigma**2) +
-                   (residuals)**2 / (2 * sigma**2) -
-                   (y_true - np.mean(score[ctr_mask]))**2 /
-                   (2 * np.std(score[ctr_mask])) )
-
-            self.MSLL_GP = np.mean(SLL)
 
             self.data['GP_pred'] = y_pred
             self.data['GP_sigma'] = sigma
             self.data['GP_residuals'] = residuals
+            self.data['GP_z'] = self.data['GP_residuals'] / self.data['GP_sigma']
+
+            self.RMSE_GP = RMSE(y_true[ctr_mask],y_pred[ctr_mask])
+            self.SMSE_GP = SMSE(y_true[ctr_mask],y_pred[ctr_mask])
+            self.MSLL_GP = MSLL(y_true[ctr_mask],y_pred[ctr_mask],sigma[ctr_mask])
 
         self._test_gp_residuals(conf_mat)
 
@@ -608,21 +612,17 @@ class PyNM:
             y_true = score
             residuals = (y_true - y_pred).astype(float)
 
-            self.SMSE_GP = (np.mean(y_true - y_pred)**2)**0.5 / np.std(score[ctr_mask])
-
-            SLL = (0.5 * np.log(2 * np.pi * sigma.numpy()**2) +
-                   (y_true - y_pred)**2 / (2 * sigma.numpy()**2) -
-                   (y_true - np.mean(score[ctr_mask]))**2 /
-                   (2 * np.std(score[ctr_mask])) )
-
-            self.MSLL_GP = np.mean(SLL)
-
             self.data['GP_pred'] = y_pred
             self.data['GP_sigma'] = sigma.numpy()
             self.data['GP_residuals'] = residuals
-            return svgp.loss
+            self.data['GP_z'] = self.data['GP_residuals']/self.data['GP_sigma']
+
+            self.RMSE_GP = RMSE(y_true[ctr_mask],y_pred[ctr_mask])
+            self.SMSE_GP = SMSE(y_true[ctr_mask],y_pred[ctr_mask])
+            self.MSLL_GP = MSLL(y_true[ctr_mask],y_pred[ctr_mask],sigma.numpy()[ctr_mask])
+
     
-    def gamlss_normative_model(self,mu=None,sigma=None,nu=None,tau=None,family='SHASHo2',what='mu',lib_loc=None):
+    def gamlss_normative_model(self,mu=None,sigma=None,nu=None,tau=None,family='SHASHo2',lib_loc=None):
         """Compute GAMLSS normative model.
         
         Parameters
@@ -631,23 +631,20 @@ class PyNM:
             Formula for mu (location) parameter of GAMLSS. If None, formula for score is sum of confounds
             with non-categorical columns as smooth functions, e.g. "score ~ ps(age) + sex".
         sigma: str or None
-            Formula for mu (location) parameter of GAMLSS. If None, formula is '~ 1'.
+            Formula for sigma (scale) parameter of GAMLSS. If None, formula is '~ 1'.
         nu: str or None
-            Formula for mu (location) parameter of GAMLSS. If None, formula is '~ 1'.
+            Formula for nu (skewness) parameter of GAMLSS. If None, formula is '~ 1'.
         tau: str or None
-            Formula for mu (location) parameter of GAMLSS. If None, formula is '~ 1'.
+            Formula for tau (kurtosis) parameter of GAMLSS. If None, formula is '~ 1'.
         family: str,default='SHASHo2'
             Family of distributions to use for fitting, default is 'SHASHo2'. See R documentation for GAMLSS package for other available families of distributions.
-        what: str, default='mu'
-            What parameter to predict, can be 'mu', 'sigma', 'nu' or 'tau'.
         lib_loc: str, default=None
             Path to location of installed GAMLSS package.
         
         Notes
         -----
         If using 'random()' to model a random effect in any of the formulas, it must be passed a column of the dataframe with categorical values
-        as a factor: e.g. 'random(as.factor(COL))'. Using a random effect also impacts which parameter it is possible to predict i.e. set the 'what'
-        argument accordingly.
+        as a factor: e.g. 'random(as.factor(COL))'.
         """
         try:
             from pynm.gamlss import GAMLSS
@@ -657,17 +654,25 @@ class PyNM:
             # get proband and control masks
             ctr_mask, _ = self._get_masks()
 
-            gamlss = GAMLSS(mu=mu,sigma=sigma,nu=nu,tau=tau,family=family,what=what,lib_loc=lib_loc,score=self.score,confounds=self.confounds)
-            nan_cols = ['LOESS_pred','LOESS_residuals','LOESS_rank','Centiles_pred','Centiles_residuals','Centiles','Centiles_rank']
+            gamlss = GAMLSS(mu=mu,sigma=sigma,nu=nu,tau=tau,family=family,lib_loc=lib_loc,score=self.score,confounds=self.confounds)
+
+            nan_cols = ['LOESS_pred','LOESS_residuals','LOESS_z','LOESS_rank','LOESS_sigma',
+            'Centiles_pred','Centiles_residuals','Centiles_z','Centiles','Centiles_rank','Centiles_sigma',
+            'Centiles_95','Centiles_5']
             gamlss_data = self.data[[c for c in self.data.columns if c not in nan_cols]]
+
             gamlss.fit(gamlss_data[ctr_mask])
-            res = gamlss.predict(gamlss_data)
-
-            self.data['GAMLSS_pred'] = res
+            mu_pred = gamlss.predict(gamlss_data,what='mu')
+            sigma_pred = gamlss.predict(gamlss_data,what='sigma')
+            
+            self.data['GAMLSS_pred'] = mu_pred
+            self.data['GAMLSS_sigma'] = sigma_pred
             self.data['GAMLSS_residuals'] = self.data[self.score] - self.data['GAMLSS_pred']
-            self.SMSE_GAMLSS = (np.mean(self.data[self.score][ctr_mask] - self.data['GAMLSS_pred'][ctr_mask])**2)**0.5 / np.std(self.data[self.score][ctr_mask])
+            self.data['GAMLSS_z'] = self.data['GAMLSS_residuals']/self.data['GAMLSS_sigma']
 
-            #TODO: test residuals?
+            self.RMSE_GAMLSS = RMSE(mu_pred[ctr_mask],self.data[self.score].values[ctr_mask])
+            self.SMSE_GAMLSS = SMSE(mu_pred[ctr_mask],self.data[self.score].values[ctr_mask])
+            self.MSLL_GAMLSS = MSLL(mu_pred[ctr_mask],self.data[self.score].values[ctr_mask],sigma_pred[ctr_mask])
 
     def _plot(self, ax,kind=None,gp_xaxis=None,gamlss_xaxis=None):
         """ Plot the data with the normative model overlaid.
@@ -695,45 +700,48 @@ class PyNM:
         elif kind == 'LOESS':
             sns.scatterplot(data=self.data, x=self.conf, y=self.score,
                              hue=self.group, style=self.group,ax=ax)
-            #tmp=self.data.sort_values(self.conf)
-            ax.plot(self.bins, self.zm, '-k')
-            #ax.plot(tmp[self.conf], tmp['LOESS_pred'], '-k')
-            #plt.fill_between(np.squeeze(self.bins),
-            #                 np.squeeze(self.zm) - 2 * np.squeeze(self.zstd),
-            #                 np.squeeze(self.zm) + 2 * np.squeeze(self.zstd),
-            #                 alpha=.2, fc='grey', ec='None', label='95% CI')
+            tmp=self.data.sort_values(self.conf)
+            ax.plot(tmp[self.conf], tmp['LOESS_pred'], '-k',label='Prediction')
+            ax.plot(tmp[self.conf], tmp['LOESS_pred'] - 1.96*tmp['LOESS_sigma'], '--k')
+            ax.plot(tmp[self.conf], tmp['LOESS_pred'] + 1.96*tmp['LOESS_sigma'], '--k',label='95% CI')
+            handles, labels = ax.get_legend_handles_labels()
+            ax.legend(handles, labels)
         elif kind == 'Centiles':
             sns.scatterplot(data=self.data, x=self.conf, y=self.score,
                                 hue=self.group, style=self.group,ax=ax)
-            #tmp=self.data.sort_values(self.conf)
-            ax.plot(self.bins, self.z[:, 50], '--k')
-            #ax.plot(tmp[self.conf], tmp['LOESS_pred'], '-k')
-            #plt.fill_between(np.squeeze(self.bins),
-            #                 np.squeeze(self.z[:, 5]),
-            #                 np.squeeze(self.z[:, 95]),
-            #                 alpha=.2, fc='grey', ec='None', label='95% CI')
+            tmp=self.data.sort_values(self.conf)
+            ax.plot(tmp[self.conf], tmp['Centiles_pred'], '-k',label='Prediction')
+            ax.plot(tmp[self.conf], tmp['Centiles_5'],'--k')
+            ax.plot(tmp[self.conf], tmp['Centiles_95'],'--k',label='95% CI')
+            handles, labels = ax.get_legend_handles_labels()
+            ax.legend(handles, labels)
         elif kind == 'GP':
             if gp_xaxis is None:
                 gp_xaxis = self.conf
             sns.scatterplot(data=self.data, x=gp_xaxis, y=self.score,
                                 hue=self.group, style=self.group,ax=ax)
             tmp=self.data.sort_values(gp_xaxis)
-            #plt.fill_between(np.squeeze(tmp[gp_xaxis]),
-            #                 np.squeeze(tmp['GP_pred']) - 2*np.squeeze(tmp['GP_sigma']),
-            #                 np.squeeze(tmp['GP_pred']) + 2*np.squeeze(tmp['GP_sigma']),
-            #                 alpha=.2, fc='grey', ec='None', label='95% CI')
-            ax.plot(tmp[gp_xaxis], tmp['GP_pred'], '-k')
+            if len(self.confounds) == 1:
+                ax.plot(tmp[gp_xaxis], tmp['GP_pred'], '-k',label='Prediction')
+                ax.plot(tmp[self.conf], tmp['GP_pred'] - 1.96*tmp['GP_sigma'], '--k')
+                ax.plot(tmp[self.conf], tmp['GP_pred'] + 1.96*tmp['GP_sigma'], '--k',label='95% CI')
+            else:
+                ax.scatter(tmp[gp_xaxis], tmp['GP_pred'], label='Prediction',color='black',marker='_',s=25)
+                ax.scatter(tmp[self.conf], tmp['GP_pred'] - 1.96*tmp['GP_sigma'],color='black',s=0.2)
+                ax.scatter(tmp[self.conf], tmp['GP_pred'] + 1.96*tmp['GP_sigma'], label='95% CI',color='black',s=0.2)
+            handles, labels = ax.get_legend_handles_labels()
+            ax.legend(handles, labels)
         elif kind == 'GAMLSS':
             if gamlss_xaxis is None:
                 gamlss_xaxis = self.conf
             sns.scatterplot(data=self.data, x=gamlss_xaxis, y=self.score,
                                 hue=self.group, style=self.group,ax=ax)
             tmp=self.data.sort_values(gamlss_xaxis)
-            #plt.fill_between(np.squeeze(tmp[gp_xaxis]),
-            #                 np.squeeze(tmp['GP_pred']) - 2*np.squeeze(tmp['GP_sigma']),
-            #                 np.squeeze(tmp['GP_pred']) + 2*np.squeeze(tmp['GP_sigma']),
-            #                 alpha=.2, fc='grey', ec='None', label='95% CI')
-            ax.plot(tmp[gamlss_xaxis], tmp['GAMLSS_pred'], '-k')
+            ax.plot(tmp[gamlss_xaxis], tmp['GAMLSS_pred'], '-k',label='Prediction')
+            ax.plot(tmp[self.conf], tmp['GAMLSS_pred'] - 1.96*tmp['GAMLSS_sigma'], '--k')
+            ax.plot(tmp[self.conf], tmp['GAMLSS_pred'] + 1.96*tmp['GAMLSS_sigma'], '--k',label='95% CI')
+            handles, labels = ax.get_legend_handles_labels()
+            ax.legend(handles, labels)
         return ax
 
     def plot(self, kind=None,gp_xaxis=None,gamlss_xaxis=None):
@@ -762,11 +770,16 @@ class PyNM:
             if len(kind)==0:
                 warnings.warn('No model results found in data.')
         
-        if set(kind).issubset(set(['LOESS','Centiles','GP','GAMLSS'])) and len(kind)>0:
+        if set(kind).issubset(set(['LOESS','Centiles','GP','GAMLSS'])) and len(kind)>1:
             fig, ax = plt.subplots(1,len(kind),figsize=(len(kind)*5,5))
             for i,k in enumerate(kind):
                 self._plot(ax[i],kind=k,gp_xaxis=gp_xaxis,gamlss_xaxis=gamlss_xaxis)
                 ax[i].set_title(k)
+            plt.show()
+        elif set(kind).issubset(set(['LOESS','Centiles','GP','GAMLSS'])) and len(kind)>0:
+            fig, ax = plt.subplots(1,len(kind),figsize=(len(kind)*5,5))
+            self._plot(ax,kind=kind[0],gp_xaxis=gp_xaxis,gamlss_xaxis=gamlss_xaxis)
+            ax.set_title(kind[0])
             plt.show()
         elif len(kind)==0:
             fig, ax = plt.subplots(1,1)
@@ -776,7 +789,7 @@ class PyNM:
         else:
             raise ValueError('Plot kind not recognized, must be a valid subset of ["Centiles","LOESS","GP","GAMLSS"] or None.')
 
-    def _plot_res(self, ax,kind=None, confound=None):
+    def _plot_res_z(self, ax,kind=None, confound=None,z=False):
         """ Plot the residuals of the normative model.
 
         Parameters
@@ -792,23 +805,85 @@ class PyNM:
         if confound is None:
             confound = np.zeros(self.data.shape[0])
         if kind == 'LOESS':
-            sns.violinplot(x=confound, y='LOESS_residuals',
-                           data=self.data, split=True, palette='Blues', hue=self.group,ax=ax)
+            if z:
+                sns.violinplot(x=confound, y='LOESS_z',
+                            data=self.data, split=True, palette='Blues', hue=self.group,ax=ax)
+            else:
+                sns.violinplot(x=confound, y='LOESS_residuals',
+                            data=self.data, split=True, palette='Blues', hue=self.group,ax=ax)
             ax.set_title(f"{kind} SMSE={np.round(self.SMSE_LOESS,3)}")
         if kind == 'Centiles':
-            sns.violinplot(x=confound, y='Centiles_residuals',
+            if z:
+                sns.violinplot(x=confound, y='Centiles_z',
                            data=self.data, split=True, palette='Blues', hue=self.group,ax=ax)
+            else:
+                sns.violinplot(x=confound, y='Centiles_residuals',
+                            data=self.data, split=True, palette='Blues', hue=self.group,ax=ax)
             ax.set_title(f"{kind} SMSE={np.round(self.SMSE_Centiles,3)}")
         if kind == 'GP':
-            sns.violinplot(x=confound, y='GP_residuals',
-                           data=self.data, split=True, palette='Blues', hue=self.group,ax=ax)
+            if z:
+                    sns.violinplot(x=confound, y='GP_z',
+                            data=self.data, split=True, palette='Blues', hue=self.group,ax=ax)
+            else:
+                sns.violinplot(x=confound, y='GP_residuals',
+                            data=self.data, split=True, palette='Blues', hue=self.group,ax=ax)
             ax.set_title(f"{kind} SMSE={np.round(self.SMSE_GP,3)} - MSLL={np.round(self.MSLL_GP,3)}")
         if kind == 'GAMLSS':
-            sns.violinplot(x=confound, y='GAMLSS_residuals',
-                           data=self.data, split=True, palette='Blues', hue=self.group,ax=ax)
+            if z:
+                sns.violinplot(x=confound, y='GAMLSS_z',
+                            data=self.data, split=True, palette='Blues', hue=self.group,ax=ax)
+            else:
+                sns.violinplot(x=confound, y='GAMLSS_residuals',
+                            data=self.data, split=True, palette='Blues', hue=self.group,ax=ax)
             ax.set_title(f"{kind} SMSE={np.round(self.SMSE_GAMLSS,3)}")
         if not isinstance(confound,str):
             ax.set_xticklabels([''])
+    
+    def _plot_res_z_cont(self, ax,kind=None, confound=None,z=False):
+        """ Plot the residuals of the normative model.
+
+        Parameters
+        ----------
+        ax: matplotlib axis
+            Axis on which to plot.
+        kind: str, default=None
+            Type of plot among "LOESS" (local polynomial), "Centiles", "GP" (gaussian processes),
+            or "GAMLSS" (generalized additive models of location scale and shape).
+        confound: str or None
+            Which confound to use as xaxis of plot, must be continuous.
+        """
+        if kind == 'LOESS':
+            if z:
+                sns.scatterplot(x=confound, y='LOESS_z',
+                                data=self.data, hue=self.group,ax=ax)
+            else:
+                sns.scatterplot(x=confound, y='LOESS_residuals',
+                                data=self.data, hue=self.group,ax=ax)
+            ax.set_title(f"{kind} SMSE={np.round(self.SMSE_LOESS,3)}")
+        if kind == 'Centiles':
+            if z:
+                sns.scatterplot(x=confound, y='Centiles_z',
+                            data=self.data, hue=self.group,ax=ax)
+            else:
+                sns.scatterplot(x=confound, y='Centiles_residuals',
+                                data=self.data, hue=self.group,ax=ax)
+            ax.set_title(f"{kind} SMSE={np.round(self.SMSE_Centiles,3)}")
+        if kind == 'GP':
+            if z:
+                sns.scatterplot(x=confound, y='GP_z',
+                                data=self.data, hue=self.group,ax=ax)
+            else:
+                sns.scatterplot(x=confound, y='GP_residuals',
+                                data=self.data, hue=self.group,ax=ax)
+            ax.set_title(f"{kind} SMSE={np.round(self.SMSE_GP,3)} - MSLL={np.round(self.MSLL_GP,3)}")
+        if kind == 'GAMLSS':
+            if z:
+                sns.scatterplot(x=confound, y='GAMLSS_z',
+                                data=self.data, hue=self.group,ax=ax)
+            else:
+                sns.scatterplot(x=confound, y='GAMLSS_residuals',
+                                data=self.data, hue=self.group,ax=ax)
+            ax.set_title(f"{kind} SMSE={np.round(self.SMSE_GAMLSS,3)}")
 
     def plot_res(self, kind=None, confound=None):
         """Plot the residuals of the normative model.
@@ -819,7 +894,7 @@ class PyNM:
             Type of plot, must be a valid subset of ["Centiles","LOESS","GP","GAMLSS"] or None. If None, all available
             results will be plotted, if None are available a ValueError will be raised.
         confound: str, default=None
-            Which confound to use as xaxis of plot, must be categorical or None.
+            Which confound to use as xaxis of plot.
         
         Raises
         ------
@@ -828,18 +903,88 @@ class PyNM:
         ValueError
             No model results found in data.
         """
+        _, cat = read_confounds(self.confounds)
+        if confound is None: 
+            categorical = True
+        elif confound in cat: 
+            categorical = True
+        else: 
+            categorical = False
+
         if kind is None:
             kind = []
             for k in ['LOESS','Centiles','GP','GAMLSS']:
-                if '{}_pred'.format(k) in self.data.columns:
+                if '{}_residuals'.format(k) in self.data.columns:
                     kind.append(k)
             if len(kind)==0:
-                raise ValueError('No model results found in data.')
+                raise ValueError('No model residuals found in data.')
         
-        if set(kind).issubset(set(['LOESS','Centiles','GP','GAMLSS'])):
+        if set(kind).issubset(set(['LOESS','Centiles','GP','GAMLSS'])) and len(kind)>1:
             fig, ax = plt.subplots(1,len(kind),figsize=(len(kind)*5,5))
             for i,k in enumerate(kind):
-                self._plot_res(ax[i],kind=k,confound=confound)
+                if categorical:
+                    self._plot_res_z(ax[i],kind=k,confound=confound)
+                else:
+                    self._plot_res_z_cont(ax[i],kind=k,confound=confound)
+            plt.show()
+        elif set(kind).issubset(set(['LOESS','Centiles','GP','GAMLSS'])):
+            fig, ax = plt.subplots(1,len(kind),figsize=(len(kind)*5,5))
+            if categorical:
+                self._plot_res_z(ax,kind=kind[0],confound=confound)
+            else:
+                self._plot_res_z_cont(ax,kind=kind[0],confound=confound)
+            plt.show()
+        else:
+            raise ValueError('Plot kind not recognized, must be a valid subset of ["Centiles","LOESS","GP","GAMLSS"] or None.')
+
+    def plot_z(self, kind=None, confound=None):
+        """Plot the deviance scores of the normative model.
+
+        Parameters
+        ----------
+        kind: list default=None
+            Type of plot, must be a valid subset of ["Centiles","LOESS","GP","GAMLSS"] or None. If None, all available
+            results will be plotted, if None are available a ValueError will be raised.
+        confound: str, default=None
+            Which confound to use as xaxis of plot.
+        
+        Raises
+        ------
+        ValueError
+            Plot kind not recognized, must be a valid subset of ["Centiles","LOESS","GP","GAMLSS"] or None.
+        ValueError
+            No model results found in data.
+        """
+        _, cat = read_confounds(self.confounds)
+        if confound is None: 
+            categorical = True
+        elif confound in cat: 
+            categorical = True
+        else: 
+            categorical = False
+
+        if kind is None:
+            kind = []
+            for k in ['LOESS','Centiles','GP','GAMLSS']:
+                if '{}_z'.format(k) in self.data.columns:
+                    kind.append(k)
+            if len(kind)==0:
+                raise ValueError('No model deviance scores found in data.')
+        
+        if set(kind).issubset(set(['LOESS','Centiles','GP','GAMLSS'])) and len(kind)>1:
+            fig, ax = plt.subplots(1,len(kind),figsize=(len(kind)*5,5))
+            for i,k in enumerate(kind):
+                if categorical:
+                    self._plot_res_z(ax[i],kind=k,confound=confound,z=True)
+                else:
+                    self._plot_res_z_cont(ax[i],kind=k,confound=confound,z=True)
+            plt.show()
+        elif set(kind).issubset(set(['LOESS','Centiles','GP','GAMLSS'])):
+            fig, ax = plt.subplots(1,len(kind),figsize=(len(kind)*5,5))
+            if categorical:
+                self._plot_res_z(ax,kind=kind[0],confound=confound,z=True)
+            else:
+                self._plot_res_z_cont(ax[i],kind=k,confound=confound,z=True)
             plt.show()
         else:
             raise ValueError('Plot kind not recognized, must be a valid subset of ["Centiles","LOESS","GP","GAMLSS"] or None.')

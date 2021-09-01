@@ -3,31 +3,34 @@ from pynm import pynm
 import pandas as pd
 
 def _cli_parser():
-    """Reads command line arguments and returns input specifications"""
+    """Reads command line arguments and returns input specifications
+
+    Returns
+    -------
+    dict
+        Parsed arguments.
+    """
     parser = ArgumentParser()
     parser.add_argument("--pheno_p",dest='pheno_p',required=True,
                         help="Path to phenotype data. Data must be in a .csv file.")
     parser.add_argument("--out_p",dest='out_p',required=True,
                         help="Path to output directory.")
-    parser.add_argument("--confounds",default = 'age',dest='confounds',
+    parser.add_argument("--confounds",dest='confounds',required=True,
                         help="List of confounds to use in the GP model."
                             "The list must formatted as a string with commas between confounds, "
                             "each confound must be a column name from the phenotype .csv file. "
                             "For GP model all confounds will be used, for LOESS and Centiles models "
                             "only the first is used. For GAMLSS all confounds are used "
                             "unless formulas are specified. Categorical values must be denoted by c(var) "
-                            "('c' must be lower case), e.g. 'c(SEX)' for column name 'SEX'. "
-                            "Default value is 'age'.")
-    parser.add_argument("--score",default = 'score',dest='score',
+                            "('c' must be lower case), e.g. 'c(SEX)' for column name 'SEX'.")
+    parser.add_argument("--score",dest='score',required=True,
                         help="Response variable for all models. "
-                        "Must be a column title from phenotype .csv file. "
-                        "Default value is 'score'.")
-    parser.add_argument("--group",default = 'group',dest='group',
+                        "Must be a column title from phenotype .csv file.")
+    parser.add_argument("--group",dest='group',required=True,
                         help="Column name from the phenotype .csv file that "
                         "distinguishes probands from controls. The column must be "
                         "encoded with str labels using 'PROB' for probands and 'CTR' for controls "
-                        "or with int labels using 1 for probands and 0 for controls. "
-                        "Default value is 'group'.")
+                        "or with int labels using 1 for probands and 0 for controls.")
     parser.add_argument("--train_sample",default='controls',dest='train_sample',
                         help="On what subset to train the model, can be 'controls', 'manual', "
                             "or a value in (0,1]. Default value is 'controls'.")
@@ -59,6 +62,10 @@ def _cli_parser():
     parser.add_argument("--gp_length_scale",default=1,dest='gp_length_scale',
                         help="Length scale of Matern kernel for exact model. "
                             "See documentation for details. Default value is 1.")
+    parser.add_argument("--gp_length_scale_bounds",default=(1e-5,1e5),dest='gp_length_scale_bounds', nargs='*',
+                        help="The lower and upper bound on length_scale. If set to 'fixed', "
+                        "length_scale cannot be changed during hyperparameter tuning. "
+                        "See documentation for details. Default value is (1e-5,1e5).")
     parser.add_argument("--gp_nu",default=2.5,dest='nu',
                         help="Nu of Matern kernel for exact and SVGP model. "
                             "See documentation for details. Default value is 2.5.")
@@ -80,13 +87,33 @@ def _cli_parser():
     parser.add_argument("--gamlss_family",default='SHASHo2',dest='gamlss_family',
                         help="Family of distributions to use for fitting, default is 'SHASHo2'. "
                         "See R documentation for GAMLSS package for other available families of distributions.")
-    parser.add_argument("--gamlss_what",default='mu',dest='gamlss_what',
-                        help="What parameter for GAMLSS to predict, can be 'mu', 'sigma', 'nu' or 'tau'. "
-                        "Default is 'mu'.")
     parser.add_argument("--gamlss_lib_loc",default=None,dest='gamlss_lib_loc',
                         help="Path to location of installed GAMLSS package. Default is None.")
     return parser.parse_args()
 
+def get_bounds(bounds):
+    """Converts gp_length_scale_bounds parameter to appropriate type.
+
+    Returns
+    -------
+    pair of floats >= 0 or 'fixed'
+        Appropriate argument for PyNM.gp_normative_model.
+    
+    Raises
+    ------
+    ValueError
+        Unrecognized argument for gp_length_scale_bounds.
+    """
+    if isinstance(bounds,list):
+        if len(bounds)==1 and bounds[0]=='fixed':
+            return 'fixed'
+        elif len(bounds)==2:
+            return (float(bounds[0]),float(bounds[1]))
+        else:
+            raise ValueError('Unrecognized argument for gp_length_scale_bounds.')
+    else:
+        return bounds
+        
 def main():
     params = vars(_cli_parser())
     
@@ -104,12 +131,16 @@ def main():
         m.centiles_normative_model()
         m.bins_num()
     if params['GP']:   
-        m.gp_normative_model(length_scale=params['gp_length_scale'],nu=params['gp_nu'], 
+        gp_length_scale_bounds = get_bounds(params['gp_length_scale_bounds'])
+        print(gp_length_scale_bounds)
+        print(type(gp_length_scale_bounds))
+        m.gp_normative_model(length_scale=params['gp_length_scale'],
+                        length_scale_bounds = gp_length_scale_bounds, nu=params['gp_nu'], 
                         method=params['gp_method'],batch_size=params['gp_batch_size'],
                         n_inducing=params['gp_n_inducing'],num_epochs=params['gp_num_epochs'])
     if args.GAMLSS:
         m.gamlss_normative_model(mu=params['gamlss_mu'],sigma=params['gamlss_sigma'],nu=params['gamlss_nu'],
-                        tau=params['gamlss_tau'],family=params['gamlss_family'],what=params['gamlss_what'],lib_loc=params['gamlss_lib_loc'])
+                        tau=params['gamlss_tau'],family=params['gamlss_family'],lib_loc=params['gamlss_lib_loc'])
     
     m.data.to_csv(params['out_p'],index=False)
     
