@@ -2,7 +2,7 @@
 
 [![PyPI version shields.io](https://img.shields.io/pypi/v/pynm.svg)](https://pypi.org/project/pynm/) <a href="https://travis-ci.org/ppsp-team/pynm"><img src="https://travis-ci.org/ppsp-team/pynm.svg?branch=master"></a> [![license](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 
-Lightweight Python implementation of Normative Modelling with Gaussian Processes, LOESS & Centiles approaches.
+Lightweight Python implementation of Normative Modelling with Gaussian Processes (exact & approximate), GAMLSS, LOESS & Centiles approaches.
 
 For a more advanced implementation, see the Python librairie [PCNtoolkit](https://github.com/amarquand/PCNtoolkit).
 
