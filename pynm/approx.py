@@ -1,6 +1,7 @@
 import math
 import torch
 import gpytorch
+import numpy as np
 import statsmodels.api as sm
 from tqdm import tqdm
 from torch.utils.data import TensorDataset, DataLoader
@@ -71,7 +72,8 @@ class SVGP:
         # Create dataloaders
         self.train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
         self.test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
-        self.inducing_points = train_x[:n_inducing, :]
+        inducing_idx = np.random.choice(np.array(range(train_x.shape[0])),size=n_inducing)
+        self.inducing_points = train_x[inducing_idx, :]
         self.n_train = train_y.size(0)
         self.n_test = test_y.size(0)
 
