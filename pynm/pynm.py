@@ -540,7 +540,8 @@ class PyNM:
         score = self._get_score()
         
         if self._use_approx(method=method):
-            self.loss = self._svgp_normative_model(conf_mat,score,ctr_mask,nu=nu,batch_size=batch_size,n_inducing=n_inducing,num_epochs=num_epochs)
+            self.loss = self._svgp_normative_model(conf_mat,score,ctr_mask,nu=nu,length_scale=length_scale, length_scale_bounds=length_scale_bounds,
+                                                batch_size=batch_size,n_inducing=n_inducing,num_epochs=num_epochs)
 
         else:
             # Define independent and response variables
@@ -568,7 +569,7 @@ class PyNM:
 
         self._test_gp_residuals(conf_mat)
 
-    def _svgp_normative_model(self,conf_mat,score,ctr_mask,nu=2.5,batch_size=256,n_inducing=500,num_epochs=20):
+    def _svgp_normative_model(self,conf_mat,score,ctr_mask,nu=2.5,length_scale=1,length_scale_bounds=(1e-5,1e5),batch_size=256,n_inducing=500,num_epochs=20):
         """ Compute SVGP model. See GPyTorch documentation for further details:
         https://docs.gpytorch.ai/en/v1.1.1/examples/04_Variational_and_Approximate_GPs/SVGP_Regression_CUDA.html#Creating-a-SVGP-Model.
 
@@ -580,6 +581,10 @@ class PyNM:
             Score/response variable.
         ctr_mask: array
             Mask (boolean array) with controls marked True.
+        length_scale: float, default=1
+            Length scale parameter of Matern kernel.
+        length_scale_bounds: pair of floats >= 0 or 'fixed', default=(1e-5, 1e5)
+            The lower and upper bound on length_scale. If set to 'fixed', ‘length_scale’ cannot be changed during hyperparameter tuning.
         nu: float, default=2.5
             Nu parameter of Matern kernel.
         batch_size: int, default=256
@@ -604,7 +609,7 @@ class PyNM:
         except:
             raise ImportError("GPyTorch and it's dependencies must be installed to use the SVGP model.")
         else:
-            svgp = SVGP(conf_mat,score,ctr_mask,n_inducing=n_inducing,batch_size=batch_size)
+            svgp = SVGP(conf_mat,score,ctr_mask,n_inducing=n_inducing,batch_size=batch_size,nu=nu,length_scale=length_scale,length_scale_bounds=length_scale_bounds)
             svgp.train(num_epochs=num_epochs)
             means, sigma = svgp.predict()
 
@@ -989,7 +994,7 @@ class PyNM:
             if categorical:
                 self._plot_res_z(ax,kind=kind[0],confound=confound,z=True)
             else:
-                self._plot_res_z_cont(ax[i],kind=k,confound=confound,z=True)
+                self._plot_res_z_cont(ax,kind=kind[0],confound=confound,z=True)
             plt.show()
         else:
             raise ValueError('Plot kind not recognized, must be a valid subset of ["Centiles","LOESS","GP","GAMLSS"] or None.')

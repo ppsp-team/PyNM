@@ -19,14 +19,52 @@ class GPModel(ApproximateGP):
     covar_module : gpytorch Kernel
         Module to calculate covariance.
     """
-    def __init__(self, inducing_points):
+    def __init__(self, inducing_points,nu=2.5,length_scale=1,length_scale_bounds=(1e-5,1e5)):
+        """ Create a GPModel object.
+
+        Parameters
+        ----------
+        inducing_points: array
+            Array of inducing points.
+        length_scale: float, default=1
+            Length scale parameter of Matern kernel.
+        length_scale_bounds: pair of floats >= 0 or 'fixed', default=(1e-5, 1e5)
+            The lower and upper bound on length_scale. If set to 'fixed', ‘length_scale’ cannot be changed during hyperparameter tuning.
+        nu: float, default=2.5
+            Nu parameter of Matern kernel.
+        
+        Raises
+        ------
+        ValueError
+            Invalid argument for length_scale_bounds
+        """
         variational_distribution = CholeskyVariationalDistribution(inducing_points.size(0))
         variational_strategy = VariationalStrategy(self, inducing_points, variational_distribution, learn_inducing_locations=True)
         super(GPModel, self).__init__(variational_strategy)
+
         self.mean_module = gpytorch.means.ConstantMean()
-        self.covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.MaternKernel(nu=2.5))
+
+        if length_scale_bounds == 'fixed':
+            constraint = gpytorch.constraints.Interval(length_scale - 0.001,length_scale + 0.0001)
+        elif isinstance(length_scale_bounds,tuple):
+            constraint = gpytorch.constraints.Interval(length_scale_bounds[0],length_scale_bounds[1])
+        else:
+            raise ValueError('Invalid argument for length_scale_bounds.')
+        prior = gpytorch.priors.NormalPrior(length_scale,1)
+        self.covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.MaternKernel(nu=nu,lengthscale_prior=prior),lengthscale_contraint = constraint)
 
     def forward(self, x):
+        """ Calculate forward pass of GPModel.
+
+        Parameters
+        ----------
+        x: Tensor
+            Data tensor.
+        
+        Returns
+        -------
+        MultivariateNormal object
+        """
         mean_x = self.mean_module(x)
         covar_x = self.covar_module(x)
         return gpytorch.distributions.MultivariateNormal(mean_x, covar_x)
@@ -54,7 +92,28 @@ class SVGP:
     loss: list
         Loss for each epoch of training.
     """
-    def __init__(self,conf_mat,score,ctr_mask,n_inducing=500,batch_size=256):
+    def __init__(self,conf_mat,score,ctr_mask,n_inducing=500,batch_size=256,nu=2.5,length_scale=1,length_scale_bounds=(1e-5,1e5)):
+        """ Create a SVGP object.
+
+        Parameters
+        ----------
+        conf_mat: array
+            Confounds with categorical values dummy encoded.
+        score: array
+            Score/response variable.
+        ctr_mask: array
+            Mask (boolean array) with controls marked True.
+        length_scale: float, default=1
+            Length scale parameter of Matern kernel.
+        length_scale_bounds: pair of floats >= 0 or 'fixed', default=(1e-5, 1e5)
+            The lower and upper bound on length_scale. If set to 'fixed', ‘length_scale’ cannot be changed during hyperparameter tuning.
+        nu: float, default=2.5
+            Nu parameter of Matern kernel.
+        batch_size: int, default=256
+            Batch size for SVGP model training and prediction.
+        n_inducing: int, default=500
+            Number of inducing points for SVGP model.
+        """
         # Get data in torch format
         X = torch.from_numpy(conf_mat)
         y = torch.from_numpy(score)
@@ -77,7 +136,7 @@ class SVGP:
         self.n_train = train_y.size(0)
         self.n_test = test_y.size(0)
 
-        self.model = GPModel(inducing_points=self.inducing_points).double()
+        self.model = GPModel(inducing_points=self.inducing_points,nu=nu,length_scale=length_scale,length_scale_bounds=length_scale_bounds).double()
         self.likelihood = gpytorch.likelihoods.GaussianLikelihood()
 
         if torch.cuda.is_available():
