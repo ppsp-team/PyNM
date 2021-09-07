@@ -27,11 +27,13 @@ class GAMLSS:
             Formula for tau (kurtosis) parameter.
         rfamily: R object
             Family of distributions to use for fitting.
+        method: str
+            Method to fit GAMLSS.
         model: R object
-            Fitted gamlss model.
+            Fitted GAMLSS model.
         """
 
-    def __init__(self,mu=None,sigma=None,nu=None,tau=None,family='SHASHo2',lib_loc=None,score=None,confounds=None):
+    def __init__(self,mu=None,sigma=None,nu=None,tau=None,family='SHASHo2',method='RS',lib_loc=None,score=None,confounds=None):
         """Create GAMLSS object. Formulas must be written for R, using functions available in the GAMLSS package.
         
         Parameters
@@ -47,6 +49,9 @@ class GAMLSS:
             Formula for tau (kurtosis) parameter of GAMLSS. If None, formula is '~ 1'.
         family: str,default='SHASHo2'
             Family of distributions to use for fitting, default is 'SHASHo2'. See R documentation for GAMLSS package for other available families of distributions.
+        method: str, default = 'RS'
+            Method for fitting GAMLSS. Can be 'RS' (Rigby and Stasinopoulos algorithm), 'CG' (Cole and Green algorithm) or 'mixed(n,m)' where n & m are integers.
+            Specifying 'mixed(n,m)' will use the RS algorithm for n iterations and the CG algorithm for up to m additional iterations.
         lib_loc: str, default=None
             Path to location of installed GAMLSS package.
         score: str, default=None
@@ -57,8 +62,7 @@ class GAMLSS:
         Notes
         -----
         If using 'random()' to model a random effect in any of the formulas, it must be passed a column of the dataframe with categorical values
-        as a factor: e.g. 'random(as.factor(COL))'. Using a random effect also impacts which parameter it is possible to predict i.e. set the 'what'
-        argument accordingly.
+        as a factor: e.g. 'random(as.factor(COL))'.
         """
         numpy2ri.activate()
         pandas2ri.activate()
@@ -67,6 +71,7 @@ class GAMLSS:
             self.gamlss_data = importr('gamlss.data')
             self.gamlss_dist = importr('gamlss.dist')
             self.gamlss = importr('gamlss')
+            self.base = importr('base')
         else:
             self.gamlss_data = importr('gamlss.data',lib_loc=lib_loc)
             self.gamlss_dist = importr('gamlss.dist',lib_loc=lib_loc)
@@ -75,6 +80,8 @@ class GAMLSS:
         self.score = score
         self.confounds = confounds
         self.mu_f,self.sigma_f,self.nu_f,self.tau_f = self._get_r_formulas(mu,sigma,nu,tau)
+        self.family = family
+        self.method = self._get_method(method)
         try:
             self.rfamily = r[family]
         except:
@@ -133,8 +140,31 @@ class GAMLSS:
             except:
                 raise ValueError("'{}' function not found in R GAMLSS package. See GAMLSS documentation for available functions.".format(func))
 
-        formula = r['formula']
-        return formula(mu),formula(sigma),formula(nu),formula(tau)
+        return mu,sigma,nu,tau
+    
+    def _get_method(self,method):
+        """ Get method parameter in appropriate format for R.
+
+        Raises
+        ------
+        TypeError
+            "Argument 'method' must be of type str."
+        ValueError
+            "Unrecognized argument for 'method'."
+        """
+        if not isinstance(method,str):
+            raise TypeError("Argument 'method' must be of type str.")
+
+        pattern = re.compile("mixed\([0-9]*,[0-9]*\)")
+    
+        if method == 'RS':
+            return 'RS()'
+        elif method == 'CG':
+            return 'CG()'
+        elif pattern.match(method) is not None:
+            return method
+        else:
+            raise ValueError("Unrecognized argument for 'method'.")
     
     def fit(self,train_data):
         """Create and fit gamlss model.
@@ -144,13 +174,16 @@ class GAMLSS:
         train_data: DataFrame
             DataFrame with training data.
         """
-        self.model = self.gamlss.gamlss(self.mu_f,
-                    sigma_formula=self.sigma_f,
-                    nu_formula=self.nu_f,
-                    tau_formula=self.tau_f,
-                    family=self.rfamily,
-                    data=train_data)
-    
+        ro.globalenv['train_data'] = train_data
+
+        self.model = r(f'''gamlss({self.mu_f},
+                                sigma.formula={self.sigma_f},
+                                nu.formula={self.nu_f},
+                                tau.formula={self.tau_f},
+                                family={self.family},
+                                data=train_data,
+                                method={self.method})''')
+            
     def predict(self,test_data,what='mu'):
         """Predict from fitted gamlss model.
         

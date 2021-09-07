@@ -472,8 +472,10 @@ class TestGAMLSS:
         from pynm import gamlss
 
         g = gamlss.GAMLSS(mu='score ~ 1')
-        mu,_,_,_ = g._get_r_formulas('score ~ cs(age) + site',None,None,None)
-        assert not isinstance(mu,str)
+        mu,sigma,_,_ = g._get_r_formulas('score ~ cs(age) + site',None,None,None)
+        #assert not isinstance(mu,str)
+        assert mu == 'score ~ cs(age) + site'
+        assert sigma == '~ 1'
 
     def test_gamlss(self):
         data = generate_data(sample_size=4, n_sites=2, randseed=3)
@@ -507,16 +509,17 @@ class TestGAMLSS:
         m.centiles_normative_model()
         m.gamlss_normative_model(mu='score ~ ps(age) + c(sex) + c(site)',sigma = '~ age',family='SHASHo2')
 
-    #TODO: Investigate what is going on (can't predict what param)
-    #def test_gamlss_random_effect(self):
-    #    df = generate_data(n_sites=4,sample_size=35,randseed=650)
-    #    #Initialize pynm w/ data and confounds
-    #    m = pynm.PyNM(df,'score','group',
-    #            confounds = ['age','c(sex)','c(site)'])
-    #    m.gamlss_normative_model(mu='score ~ ps(age) + c(sex) + random(as.factor(site))',sigma = '~ ps(age)',family='SHASHo2')
-    
-    def test_gamlss_what_mu(self):
+    def test_gamlss_random_effect(self):
         df = generate_data(n_sites=4,sample_size=35,randseed=650)
         #Initialize pynm w/ data and confounds
-        m = pynm.PyNM(df,'score','group',['age','c(sex)','c(site)'])
-        m.gamlss_normative_model(mu='score ~ ps(age) + c(sex) + c(site)',sigma = '~ ps(age)',family='SHASHo2')
+        m = pynm.PyNM(df,'score','group',
+                confounds = ['age','c(sex)','c(site)'])
+        m.gamlss_normative_model(mu='score ~ ps(age) + c(sex) + random(as.factor(site))',family='SHASHo2',method='mixed(10,10)')
+    
+    def test_gamlss_bad_formula(self):
+        df = generate_data(n_sites=4,sample_size=35,randseed=650)
+        #Initialize pynm w/ data and confounds
+        m = pynm.PyNM(df,'score','group',
+                confounds = ['age','c(sex)','c(site)'])
+        with pytest.raises(ValueError):
+            m.gamlss_normative_model(mu='score ~ xxx(age) + c(sex) + c(site)',family='SHASHo2')

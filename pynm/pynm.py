@@ -627,7 +627,7 @@ class PyNM:
             self.MSLL_GP = MSLL(y_true[ctr_mask],y_pred[ctr_mask],sigma.numpy()[ctr_mask])
 
     
-    def gamlss_normative_model(self,mu=None,sigma=None,nu=None,tau=None,family='SHASHo2',lib_loc=None):
+    def gamlss_normative_model(self,mu=None,sigma=None,nu=None,tau=None,family='SHASHo2',method='RS',lib_loc=None):
         """Compute GAMLSS normative model.
         
         Parameters
@@ -643,6 +643,9 @@ class PyNM:
             Formula for tau (kurtosis) parameter of GAMLSS. If None, formula is '~ 1'.
         family: str,default='SHASHo2'
             Family of distributions to use for fitting, default is 'SHASHo2'. See R documentation for GAMLSS package for other available families of distributions.
+        method: str, default = 'RS'
+            Method for fitting GAMLSS. Can be 'RS' (Rigby and Stasinopoulos algorithm), 'CG' (Cole and Green algorithm) or 'mixed(n,m)' where n & m are integers.
+            Specifying 'mixed(n,m)' will use the RS algorithm for n iterations and the CG algorithm for up to m additional iterations.
         lib_loc: str, default=None
             Path to location of installed GAMLSS package.
         
@@ -659,7 +662,8 @@ class PyNM:
             # get proband and control masks
             ctr_mask, _ = self._get_masks()
 
-            gamlss = GAMLSS(mu=mu,sigma=sigma,nu=nu,tau=tau,family=family,lib_loc=lib_loc,score=self.score,confounds=self.confounds)
+            gamlss = GAMLSS(mu=mu,sigma=sigma,nu=nu,tau=tau,family=family,method=method,
+                            lib_loc=lib_loc,score=self.score,confounds=self.confounds)
 
             nan_cols = ['LOESS_pred','LOESS_residuals','LOESS_z','LOESS_rank','LOESS_sigma',
             'Centiles_pred','Centiles_residuals','Centiles_z','Centiles','Centiles_rank','Centiles_sigma',
@@ -667,17 +671,21 @@ class PyNM:
             gamlss_data = self.data[[c for c in self.data.columns if c not in nan_cols]]
 
             gamlss.fit(gamlss_data[ctr_mask])
-            mu_pred = gamlss.predict(gamlss_data,what='mu')
-            sigma_pred = gamlss.predict(gamlss_data,what='sigma')
             
-            self.data['GAMLSS_pred'] = mu_pred
-            self.data['GAMLSS_sigma'] = sigma_pred
-            self.data['GAMLSS_residuals'] = self.data[self.score] - self.data['GAMLSS_pred']
-            self.data['GAMLSS_z'] = self.data['GAMLSS_residuals']/self.data['GAMLSS_sigma']
+            try:
+                mu_pred = gamlss.predict(gamlss_data,what='mu')
+                sigma_pred = gamlss.predict(gamlss_data,what='sigma')
+            except:
+                raise RuntimeError("GAMLSS fitting algorithm has not yet converged - adjust 'method' parameter.")
+            else:
+                self.data['GAMLSS_pred'] = mu_pred
+                self.data['GAMLSS_sigma'] = sigma_pred
+                self.data['GAMLSS_residuals'] = self.data[self.score] - self.data['GAMLSS_pred']
+                self.data['GAMLSS_z'] = self.data['GAMLSS_residuals']/self.data['GAMLSS_sigma']
 
-            self.RMSE_GAMLSS = RMSE(mu_pred[ctr_mask],self.data[self.score].values[ctr_mask])
-            self.SMSE_GAMLSS = SMSE(mu_pred[ctr_mask],self.data[self.score].values[ctr_mask])
-            self.MSLL_GAMLSS = MSLL(mu_pred[ctr_mask],self.data[self.score].values[ctr_mask],sigma_pred[ctr_mask])
+                self.RMSE_GAMLSS = RMSE(mu_pred[ctr_mask],self.data[self.score].values[ctr_mask])
+                self.SMSE_GAMLSS = SMSE(mu_pred[ctr_mask],self.data[self.score].values[ctr_mask])
+                self.MSLL_GAMLSS = MSLL(mu_pred[ctr_mask],self.data[self.score].values[ctr_mask],sigma_pred[ctr_mask])
 
     def _plot(self, ax,kind=None,gp_xaxis=None,gamlss_xaxis=None):
         """ Plot the data with the normative model overlaid.
