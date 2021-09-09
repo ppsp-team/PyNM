@@ -27,16 +27,15 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import warnings
 
-import statsmodels.api as sm
-from statsmodels.sandbox.regression.predstd import wls_prediction_std
 from statsmodels.stats.diagnostic import het_white
 from statsmodels.tools.tools import add_constant
-from scipy.stats.mstats import mquantiles
 from scipy import stats
 
 from sklearn import gaussian_process
 from sklearn.gaussian_process.kernels import Matern, WhiteKernel, ConstantKernel
-from pynm.util import * 
+from pynm.util import *
+from pynm.models.loess import *
+from pynm.models.centiles import *
 
 class PyNM:
     """ Class to run normative modeling using LOESS, centiles, or GP model.
@@ -319,40 +318,11 @@ class PyNM:
         ctr_mask, _ = self._get_masks()
         ctr = data[ctr_mask]
 
-        self.zm = np.zeros(self.bins.shape[0])  # mean
-        self.zstd = np.zeros(self.bins.shape[0])  # standard deviation
-        self.zci = np.zeros([self.bins.shape[0], 2])  # confidence interval
+        # fit model
+        self.zm,self.zstd,self.zci = loess_fit(ctr,self.bins,self.bin_width)
 
-        for i, bin_center in enumerate(self.bins):
-            mu = np.array(bin_center)  # bin_center value (age or conf)
-            bin_mask = (abs(ctr[:, :1] - mu) < self.bin_width) * 1.
-            idx = [u for (u, v) in np.argwhere(bin_mask)]
-
-            scores = ctr[idx, 1]
-            adj_conf = ctr[idx, 0] - mu  # confound relative to bin center
-
-            # if more than 2 non NaN values do the model
-            if (~np.isnan(scores)).sum() > 2:
-                mod = sm.WLS(scores, sm.tools.add_constant(adj_conf, 
-                                                           has_constant='add'),
-                             missing='drop', weight=bin_mask.flatten()[idx],
-                             hasconst=True).fit()
-                self.zm[i] = mod.params[0]  # mean
-
-                # std and confidence intervals
-                prstd, iv_l, iv_u = wls_prediction_std(mod, [0, 0])
-                self.zstd[i] = prstd
-                self.zci[i, :] = mod.conf_int()[0, :]  # [iv_l, iv_u]
-
-            else:
-                self.zm[i] = np.nan
-                self.zci[i] = np.nan
-                self.zstd[i] = np.nan
-
-        dists = [np.abs(conf - self.bins) for conf in self.data[self.conf]]
-        idx = [np.argmin(d) for d in dists]
-        m = np.array([self.zm[i] for i in idx])
-        std = np.array([self.zstd[i] for i in idx])
+        # predict
+        m, std = loess_predict(self.bins,self.conf,self.data,self.zm,self.zstd)
 
         self.data['LOESS_pred'] = m
         self.data['LOESS_sigma'] = std
@@ -387,36 +357,11 @@ class PyNM:
         ctr_mask, _ = self._get_masks()
         ctr = data[ctr_mask]
 
-        self.z = np.zeros([self.bins.shape[0], 101])  # centiles
+        # fit model
+        z = centiles_fit(ctr,self.bins,self.bin_width)
 
-        for i, bin_center in enumerate(self.bins):
-            mu = np.array(bin_center)  # bin_center value (age or conf)
-            bin_mask = (abs(ctr[:, :1] - mu) <
-                        self.bin_width) * 1.  # one hot mask
-            idx = [u for (u, v) in np.argwhere(bin_mask)]
-            scores = ctr[idx, 1]
-
-            # if more than 2 non NaN values do the model
-            if (~np.isnan(scores)).sum() > 2:
-                # centiles
-                self.z[i, :] = mquantiles(scores, prob=np.linspace(0, 1, 101), alphap=0.4, betap=0.4)
-            else:
-                self.z[i] = np.nan
-
-        dists = [np.abs(conf - self.bins) for conf in self.data[self.conf]]
-        idx = [np.argmin(d) for d in dists]
-        centiles = np.array([self.z[i] for i in idx])
-        centiles_50 = np.array([centiles[i, 50] for i in range(self.data.shape[0])])
-        centiles_68 = np.array([centiles[i, 68] for i in range(self.data.shape[0])])
-        centiles_32 = np.array([centiles[i, 32] for i in range(self.data.shape[0])])
-
-        result = np.zeros(centiles.shape[0])
-        max_mask = self.data[self.score] >= np.max(centiles, axis=1)
-        min_mask = self.data[self.score] < np.min(centiles, axis=1)
-        else_mask = ~(max_mask | min_mask)
-        result[max_mask] = 100
-        result[min_mask] = 0
-        result[else_mask] = np.array([np.argmin(self.data[self.score][i] >= centiles[i]) for i in range(self.data.shape[0])])[else_mask]
+        # predict
+        result, centiles, centiles_32, centiles_50, centiles_68 = centiles_predict(self.data, self.score, self.conf, self.bins,z)
 
         self.data['Centiles'] = result
         self.data['Centiles_pred'] = centiles_50
@@ -533,10 +478,7 @@ class PyNM:
         # get matrix of confounds
         conf_mat = self._get_conf_mat()
 
-        # Define independent and response variables
-        y = self.data[self.score][ctr_mask].to_numpy().reshape(-1, 1)
-        X = conf_mat[ctr_mask]
-        
+        # get score        
         score = self._get_score()
         
         if self._use_approx(method=method):
@@ -556,11 +498,10 @@ class PyNM:
             #Predict normative values
             y_pred, sigma = gp.predict(conf_mat, return_std=True)
             y_true = self.data[self.score].to_numpy().reshape(-1,1)
-            residuals = y_true - y_pred
 
             self.data['GP_pred'] = y_pred
             self.data['GP_sigma'] = sigma
-            self.data['GP_residuals'] = residuals
+            self.data['GP_residuals'] = y_true - y_pred
             self.data['GP_z'] = self.data['GP_residuals'] / self.data['GP_sigma']
 
             self.RMSE_GP = RMSE(y_true[ctr_mask],y_pred[ctr_mask])
@@ -605,7 +546,7 @@ class PyNM:
             Loss per epoch of training (temp for debugging).
         """
         try:
-            from pynm.approx import SVGP
+            from pynm.models.approx import SVGP
         except:
             raise ImportError("GPyTorch and it's dependencies must be installed to use the SVGP model.")
         else:
@@ -655,7 +596,7 @@ class PyNM:
         as a factor: e.g. 'random(as.factor(COL))'.
         """
         try:
-            from pynm.gamlss import GAMLSS
+            from pynm.models.gamlss import GAMLSS
         except:
             raise ImportError("R and the GAMLSS package must be installed to use GAMLSS model, see documentation for installation help.")
         else:

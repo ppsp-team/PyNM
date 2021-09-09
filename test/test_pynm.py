@@ -421,7 +421,7 @@ class TestPlot:
 
 class TestApprox:
     def test_svgp_init(self):
-        from pynm.approx import SVGP
+        from pynm.models.approx import SVGP
 
         data = generate_data(randseed=3)
         m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
@@ -433,7 +433,7 @@ class TestApprox:
         assert svgp.n_test == 6
     
     def test_svgp_train(self):
-        from pynm.approx import SVGP
+        from pynm.models.approx import SVGP
 
         data = generate_data(randseed=3)
         m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
@@ -446,7 +446,7 @@ class TestApprox:
         assert len(svgp.loss) == 2
     
     def test_svgp_predict(self):
-        from pynm.approx import SVGP
+        from pynm.models.approx import SVGP
 
         data = generate_data(randseed=3)
         m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
@@ -469,7 +469,7 @@ class TestApprox:
 
 class TestGAMLSS:
     def test_get_r_formulas(self):
-        from pynm import gamlss
+        from pynm.models import gamlss
 
         g = gamlss.GAMLSS(mu='score ~ 1')
         mu,sigma,_,_ = g._get_r_formulas('score ~ cs(age) + site',None,None,None)
@@ -496,7 +496,7 @@ class TestGAMLSS:
         assert 'GAMLSS_pred' in m.data.columns
     
     def test_gamlss_invalid_init(self):
-        from pynm import gamlss
+        from pynm.models import gamlss
         
         with pytest.raises(ValueError):
             gamlss.GAMLSS()
