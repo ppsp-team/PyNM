@@ -128,7 +128,7 @@ class GAMLSS:
             tau = '~ 1'
         
         # get r functions from formulas
-        p = re.compile(r"\w*\(") # raw string (to avoid deprecation warning)
+        p = re.compile(r"\w*\(")
         funcs = []
         for s in [mu,sigma,nu,tau]:
             for f in p.findall(s):
@@ -155,7 +155,7 @@ class GAMLSS:
         if not isinstance(method,str):
             raise TypeError("Argument 'method' must be of type str.")
 
-        pattern = re.compile("mixed\([0-9]*,[0-9]*\)")
+        pattern = re.compile(r"mixed\([0-9]*,[0-9]*\)")
     
         if method == 'RS':
             return 'RS()'
@@ -183,7 +183,7 @@ class GAMLSS:
                                 family={self.family},
                                 data=train_data,
                                 method={self.method})''')
-            
+                    
     def predict(self,test_data,what='mu'):
         """Predict from fitted gamlss model.
         
@@ -194,5 +194,8 @@ class GAMLSS:
         what: str
             Which parameter to predict, can be 'mu','sigma', 'nu', or 'tau'.
         """
-        res = self.gamlss.predict_gamlss(self.model,newdata=test_data,what=what)
+        ro.globalenv['model'] = self.model
+        ro.globalenv['test_data'] = test_data
+
+        res = r(f'''predict(model,newdata=test_data,parameter="{what}")''')
         return res

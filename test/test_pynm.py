@@ -514,7 +514,15 @@ class TestGAMLSS:
         #Initialize pynm w/ data and confounds
         m = pynm.PyNM(df,'score','group',
                 confounds = ['age','c(sex)','c(site)'])
-        m.gamlss_normative_model(mu='score ~ ps(age) + c(sex) + random(as.factor(site))',family='SHASHo2',method='mixed(10,10)')
+        m.gamlss_normative_model(mu='score ~ ps(age) + c(sex) + random(as.factor(site))',sigma = '~ ps(age)',family='SHASHo2',method='mixed(10,50)')
+    
+    def test_gamlss_random_effect_not_converged(self):
+        #TODO: Force example where algorithm not converged warning gets thrown
+        df = generate_data(n_sites=4,sample_size=35,randseed=650)
+        #Initialize pynm w/ data and confounds
+        m = pynm.PyNM(df,'score','group',
+                confounds = ['age','c(sex)','c(site)'])
+        m.gamlss_normative_model(mu='score ~ ps(age) + c(sex) + random(as.factor(site))',sigma = '~ ps(age)',family='SHASHo2',method='RS')
     
     def test_gamlss_bad_formula(self):
         df = generate_data(n_sites=4,sample_size=35,randseed=650)
