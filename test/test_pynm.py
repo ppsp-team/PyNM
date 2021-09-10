@@ -558,3 +558,33 @@ class TestCV:
         m.centiles_normative_model(cv_folds=3)
         assert not np.isnan(m.RMSE_Centiles)
         assert not np.isnan(m.SMSE_Centiles)
+    
+    def test_cv_1_gp(self):
+        data = generate_data(sample_size=4, n_sites=2, randseed=3)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
+        m.gp_normative_model()
+        assert 'GP_pred' in m.data.columns
+        assert math.isclose(0,m.data['GP_residuals'].mean(),abs_tol=0.5)
+    
+    def test_cv_3_gp(self):
+        data = generate_data(sample_size=4, n_sites=2, randseed=3)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
+        m.gp_normative_model(cv_folds=3)
+        assert 'GP_pred' in m.data.columns
+        assert math.isclose(0,m.data['GP_residuals'].mean(),abs_tol=0.5)
+    
+    def test_cv_1_svgp(self):
+        data = generate_data(sample_size=4, n_sites=2, randseed=3)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
+        m.gp_normative_model(method='approx')
+
+        assert 'GP_pred' in m.data.columns
+        assert math.isclose(0, m.data['GP_residuals'].mean(), abs_tol=0.5)
+    
+    def test_cv_3_svgp(self):
+        data = generate_data(sample_size=4, n_sites=2, randseed=3)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
+        m.gp_normative_model(method='approx',cv_folds=3,num_epochs=3)
+
+        assert 'GP_pred' in m.data.columns
+        assert math.isclose(0, m.data['GP_residuals'].mean(), abs_tol=0.5)

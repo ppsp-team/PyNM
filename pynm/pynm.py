@@ -514,7 +514,7 @@ class PyNM:
         if p_het < 0.05:
             warnings.warn("The residuals are heteroskedastic!")
         
-    def gp_normative_model(self, length_scale=1, nu=2.5, length_scale_bounds=(1e-5,1e5),method='auto', batch_size=256, n_inducing=500, num_epochs=20):
+    def gp_normative_model(self, length_scale=1, nu=2.5, length_scale_bounds=(1e-5,1e5),method='auto', batch_size=256, n_inducing=500, num_epochs=20, cv_folds=1):
         """ Compute gaussian process normative model. Gaussian process regression is computed using
         the Matern Kernel with an added constant and white noise. For Matern kernel see scikit-learn documentation:
         https://scikit-learn.org/stable/modules/generated/sklearn.gaussian_process.kernels.Matern.html.
@@ -536,6 +536,8 @@ class PyNM:
             Number of inducing points for SVGP model.
         num_epochs: int, default=20
             Number of epochs (passes through entire dataset) to train SVGP for.
+        cv_folds: int, default=1
+            How many folds of cross-validation to perform. If 1, there is no cross-validation.
         """
         # get proband and control masks
         ctr_mask, _ = self._get_masks()
@@ -548,34 +550,67 @@ class PyNM:
         
         if self._use_approx(method=method):
             self.loss = self._svgp_normative_model(conf_mat,score,ctr_mask,nu=nu,length_scale=length_scale, length_scale_bounds=length_scale_bounds,
-                                                batch_size=batch_size,n_inducing=n_inducing,num_epochs=num_epochs)
+                                                batch_size=batch_size,n_inducing=n_inducing,num_epochs=num_epochs,cv_folds=cv_folds)
 
         else:
+            kernel = ConstantKernel() + WhiteKernel(noise_level=1) + Matern(length_scale=length_scale, nu=nu,length_scale_bounds=length_scale_bounds)
+            gp = gaussian_process.GaussianProcessRegressor(kernel=kernel)
+
             # Define independent and response variables
             y = score[ctr_mask].reshape(-1,1)
             X = conf_mat[ctr_mask]
 
-            # Fit normative model on controls
-            kernel = ConstantKernel() + WhiteKernel(noise_level=1) + Matern(length_scale=length_scale, nu=nu,length_scale_bounds=length_scale_bounds)
-            gp = gaussian_process.GaussianProcessRegressor(kernel=kernel)
-            gp.fit(X, y)
+            if cv_folds == 1:
+                gp.fit(X, y)
+                y_pred, sigma = gp.predict(conf_mat, return_std=True)
+                y_true = self.data[self.score].to_numpy().reshape(-1,1)
 
-            #Predict normative values
-            y_pred, sigma = gp.predict(conf_mat, return_std=True)
-            y_true = self.data[self.score].to_numpy().reshape(-1,1)
+                rmse = RMSE(y_true[ctr_mask],y_pred[ctr_mask])
+                smse = SMSE(y_true[ctr_mask],y_pred[ctr_mask])
+                msll = MSLL(y_true[ctr_mask],y_pred[ctr_mask],sigma[ctr_mask])
+            else:
+                kf = KFold(n_splits=cv_folds)
+                rmse = []
+                smse = []
+                msll = []
+                print(f'Starting {cv_folds} folds of CV...')
+                for i, (train_index, test_index) in enumerate(kf.split(X)):
+                    X_train, X_test = X[train_index], X[test_index]
+                    y_train, y_test = y[train_index], y[test_index]
+                    gp.fit(X_train, y_train)
+                    y_pred, sigma = gp.predict(X_test, return_std=True)
+
+                    r = RMSE(y_test,y_pred)
+                    s = SMSE(y_test,y_pred)
+                    m = MSLL(y_test,y_pred,sigma)
+                    print(f'CV Fold {i}: RMSE={r:.3f} - SMSE={s:.3f} - MSLL={m:.3f}')
+                    rmse.append(r)
+                    smse.append(s)
+                    msll.append(m)
+                print('Done!')
+
+                rmse = np.mean(rmse)
+                smse = np.mean(smse)
+                msll = np.mean(msll)
+                print(f'Average: RMSE={rmse:.3f} - SMSE={smse:.3f} - MSLL={msll:.3f}')
+
+                gp.fit(X, y)
+                y_pred, sigma = gp.predict(conf_mat, return_std=True)
+                y_true = self.data[self.score].to_numpy().reshape(-1,1)
 
             self.data['GP_pred'] = y_pred
             self.data['GP_sigma'] = sigma
             self.data['GP_residuals'] = y_true - y_pred
             self.data['GP_z'] = self.data['GP_residuals'] / self.data['GP_sigma']
 
-            self.RMSE_GP = RMSE(y_true[ctr_mask],y_pred[ctr_mask])
-            self.SMSE_GP = SMSE(y_true[ctr_mask],y_pred[ctr_mask])
-            self.MSLL_GP = MSLL(y_true[ctr_mask],y_pred[ctr_mask],sigma[ctr_mask])
+            self.RMSE_GP = rmse
+            self.SMSE_GP = smse
+            self.MSLL_GP = msll
 
         self._test_gp_residuals(conf_mat)
 
-    def _svgp_normative_model(self,conf_mat,score,ctr_mask,nu=2.5,length_scale=1,length_scale_bounds=(1e-5,1e5),batch_size=256,n_inducing=500,num_epochs=20):
+    def _svgp_normative_model(self,conf_mat,score,ctr_mask,nu=2.5,length_scale=1,length_scale_bounds=(1e-5,1e5),
+                                batch_size=256,n_inducing=500,num_epochs=20,cv_folds=1):
         """ Compute SVGP model. See GPyTorch documentation for further details:
         https://docs.gpytorch.ai/en/v1.1.1/examples/04_Variational_and_Approximate_GPs/SVGP_Regression_CUDA.html#Creating-a-SVGP-Model.
 
@@ -599,6 +634,8 @@ class PyNM:
             Number of inducing points for SVGP model.
         num_epochs: int, default=20
             Number of epochs (passes through entire dataset) to train SVGP for.
+        cv_folds: int, default=1
+            How many folds of cross-validation to perform. If 1, there is no cross-validation.
         
         Raises
         ------
@@ -615,22 +652,76 @@ class PyNM:
         except:
             raise ImportError("GPyTorch and it's dependencies must be installed to use the SVGP model.")
         else:
-            svgp = SVGP(conf_mat,score,ctr_mask,n_inducing=n_inducing,batch_size=batch_size,nu=nu,length_scale=length_scale,length_scale_bounds=length_scale_bounds)
-            svgp.train(num_epochs=num_epochs)
-            means, sigma = svgp.predict()
+            if cv_folds == 1:
+                svgp = SVGP(conf_mat[ctr_mask],conf_mat,score[ctr_mask],score,n_inducing=n_inducing,batch_size=batch_size,nu=nu,
+                            length_scale=length_scale,length_scale_bounds=length_scale_bounds)
+                
+                svgp.train(num_epochs=num_epochs)
+                means, sigma = svgp.predict()
 
-            y_pred = means.numpy()
-            y_true = score
-            residuals = (y_true - y_pred).astype(float)
+                y_pred = means.numpy()
+                y_true = score
+                residuals = (y_true - y_pred).astype(float)
+
+                rmse = RMSE(y_true[ctr_mask],y_pred[ctr_mask])
+                smse = SMSE(y_true[ctr_mask],y_pred[ctr_mask])
+                msll = MSLL(y_true[ctr_mask],y_pred[ctr_mask],sigma.numpy()[ctr_mask])
+
+            else:
+                X = conf_mat[ctr_mask]
+                y = score[ctr_mask]
+
+                kf = KFold(n_splits=cv_folds)
+                rmse = []
+                smse = []
+                msll = []
+                print(f'Starting {cv_folds} folds of CV...')
+                for i, (train_index, test_index) in enumerate(kf.split(X)):
+                    X_train, X_test = X[train_index], X[test_index]
+                    y_train, y_test = y[train_index], y[test_index]
+
+                    cv_svgp = SVGP(X_train,X_test,y_train,y_test,n_inducing=n_inducing,batch_size=batch_size,nu=nu,
+                            length_scale=length_scale,length_scale_bounds=length_scale_bounds)
+                
+                    cv_svgp.train(num_epochs=num_epochs)
+                    cv_means, cv_sigma = cv_svgp.predict()
+
+                    cv_y_pred = cv_means.numpy()
+                    cv_residuals = (y_test - cv_y_pred).astype(float)
+
+                    r = RMSE(y_test,cv_y_pred)
+                    s = SMSE(y_test,cv_y_pred)
+                    m = MSLL(y_test,cv_y_pred,cv_sigma.numpy())
+
+                    print(f'CV Fold {i}: RMSE={r:.3f} - SMSE={s:.3f} - MSLL={m:.3f}')
+                    rmse.append(r)
+                    smse.append(s)
+                    msll.append(m)
+                print('Done!')
+
+                rmse = np.mean(rmse)
+                smse = np.mean(smse)
+                msll = np.mean(msll)
+                print(f'Average: RMSE={rmse:.3f} - SMSE={smse:.3f} - MSLL={msll:.3f}')
+
+                svgp = SVGP(conf_mat[ctr_mask],conf_mat,score[ctr_mask],score,n_inducing=n_inducing,batch_size=batch_size,nu=nu,
+                            length_scale=length_scale,length_scale_bounds=length_scale_bounds)
+                
+                svgp.train(num_epochs=num_epochs)
+                means, sigma = svgp.predict()
+
+                y_pred = means.numpy()
+                y_true = score
+                residuals = (y_true - y_pred).astype(float)
 
             self.data['GP_pred'] = y_pred
             self.data['GP_sigma'] = sigma.numpy()
             self.data['GP_residuals'] = residuals
             self.data['GP_z'] = self.data['GP_residuals']/self.data['GP_sigma']
 
-            self.RMSE_GP = RMSE(y_true[ctr_mask],y_pred[ctr_mask])
-            self.SMSE_GP = SMSE(y_true[ctr_mask],y_pred[ctr_mask])
-            self.MSLL_GP = MSLL(y_true[ctr_mask],y_pred[ctr_mask],sigma.numpy()[ctr_mask])
+            self.RMSE_GP = rmse
+            self.SMSE_GP = smse
+            self.MSLL_GP = msll
 
     
     def gamlss_normative_model(self,mu=None,sigma=None,nu=None,tau=None,family='SHASHo2',method='RS',lib_loc=None):
