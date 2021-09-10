@@ -543,6 +543,18 @@ class TestCV:
         data = generate_data(n_sites=1,sample_size=100,randseed=650)
         m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'],bin_spacing=8,bin_width=1.5)
         m.loess_normative_model(cv_folds=3)
-        print(type(m.RMSE_LOESS))
         assert not np.isnan(m.RMSE_LOESS)
         assert not np.isnan(m.SMSE_LOESS)
+    
+    def test_cv_1_centiles(self):
+        data = generate_data(randseed=11)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'],bin_spacing=8,bin_width=1.5)
+        m.centiles_normative_model()
+        assert np.sum(m.data.Centiles) == 446
+    
+    def test_cv_3_centiles(self):
+        data = generate_data(n_sites=1,sample_size=100,randseed=650)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'],bin_spacing=8,bin_width=1.5)
+        m.centiles_normative_model(cv_folds=3)
+        assert not np.isnan(m.RMSE_Centiles)
+        assert not np.isnan(m.SMSE_Centiles)

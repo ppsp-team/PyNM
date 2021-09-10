@@ -36,43 +36,35 @@ def centiles_fit(train_data,bins,bin_width):
     
     return z
 
-def centiles_predict(test_data, score, confound, bins,z):
+def centiles_predict(test_data,bins,z):
     """ Predict from Centiles model.
 
     Parameters
     ----------
+    test_data: array
+        Test data for Centiles model. Column 0 is confound, 1 is score.
     bins: array
-    confound: str
-    score: str
-    test_data: DataFrame
+        Bins for Centiles model.
     z: array
+        Centiles for each bin.
 
     Returns
     -------
     array
-        result
+        Centile within which each subject falls.
     array
-        centiles
-    array
-        centiles_32
-    array
-        centiles_50
-    array
-        centiles_68
+        Centiles for each subject.
     """
-    dists = [np.abs(conf - bins) for conf in test_data[confound]] #TODO: convert test_data to array for consistency w/ fit
+    dists = [np.abs(conf - bins) for conf in test_data[:,0]]
     idx = [np.argmin(d) for d in dists]
     centiles = np.array([z[i] for i in idx])
-    centiles_50 = np.array([centiles[i, 50] for i in range(test_data.shape[0])])
-    centiles_68 = np.array([centiles[i, 68] for i in range(test_data.shape[0])])
-    centiles_32 = np.array([centiles[i, 32] for i in range(test_data.shape[0])])
 
     result = np.zeros(centiles.shape[0])
-    max_mask = test_data[score] >= np.max(centiles, axis=1)
-    min_mask = test_data[score] < np.min(centiles, axis=1)
+    max_mask = test_data[:,1] >= np.max(centiles, axis=1)
+    min_mask = test_data[:,1] < np.min(centiles, axis=1)
     else_mask = ~(max_mask | min_mask)
     result[max_mask] = 100
     result[min_mask] = 0
-    result[else_mask] = np.array([np.argmin(test_data[score][i] >= centiles[i]) for i in range(test_data.shape[0])])[else_mask]
+    result[else_mask] = np.array([np.argmin(test_data[:,1][i] >= centiles[i]) for i in range(test_data.shape[0])])[else_mask]
 
-    return result, centiles, centiles_32, centiles_50, centiles_68
+    return result, centiles

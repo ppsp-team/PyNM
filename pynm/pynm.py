@@ -328,7 +328,7 @@ class PyNM:
         # Cross-validation
         if cv_folds == 1:
             self.zm,self.zstd,self.zci = loess_fit(ctr,self.bins,self.bin_width)
-            m, std = loess_predict(self.bins,self.conf,data,self.zm,self.zstd)
+            m, std = loess_predict(data,self.bins,self.zm,self.zstd)
 
             rmse = RMSE(self.data[self.score].values[ctr_mask],m[ctr_mask])
             smse = SMSE(self.data[self.score].values[ctr_mask],m[ctr_mask])
@@ -341,7 +341,7 @@ class PyNM:
             for i, (train_index, test_index) in enumerate(kf.split(ctr)):
                 ctr_train, ctr_test = ctr[train_index], ctr[test_index]
                 cv_zm,cv_zstd,_ = loess_fit(ctr_train,self.bins,self.bin_width)
-                cv_m, _ = loess_predict(self.bins,self.conf,ctr_test,cv_zm,cv_zstd)
+                cv_m, _ = loess_predict(ctr_test,self.bins,cv_zm,cv_zstd)
                 r = RMSE(ctr_test[:,1],cv_m)
                 s = SMSE(ctr_test[:,1],cv_m)
                 print(f'CV Fold {i}: RMSE={r:.3f} - SMSE={s:.3f}')
@@ -354,7 +354,7 @@ class PyNM:
             print(f'Average: RMSE={rmse:.3f} - SMSE={smse:.3f}')
 
             self.zm,self.zstd,self.zci = loess_fit(ctr,self.bins,self.bin_width)
-            m, std = loess_predict(self.bins,self.conf,data,self.zm,self.zstd)
+            m, std = loess_predict(data,self.bins,self.zm,self.zstd)
 
         self.data['LOESS_pred'] = m
         self.data['LOESS_sigma'] = std
@@ -377,36 +377,69 @@ class PyNM:
                       (self.data.Centiles_pred <= 95), 'Centiles_rank'] = 1
         self.data.loc[(self.data.Centiles_pred > 95), 'Centiles_rank'] = 2
 
-    def centiles_normative_model(self):
-        """ Compute centiles normative model."""
+    def centiles_normative_model(self, cv_folds=1):
+        """ Compute centiles normative model.
+
+        Parameters
+        ----------
+        cv_folds: int, default=1
+            How many folds of cross-validation to perform. If 1, there is no cross-validation.
+        """
         if self.bins is None:
             self._create_bins()
 
-        # format data
+        # Format data
         data = self.data[[self.conf, self.score]].to_numpy(dtype=np.float64)
 
-        # take the controls
+        # Take the controls
         ctr_mask, _ = self._get_masks()
         ctr = data[ctr_mask]
 
-        # fit model
-        z = centiles_fit(ctr,self.bins,self.bin_width)
+        # Cross-validation
+        if cv_folds == 1:
+            self.z = centiles_fit(ctr,self.bins,self.bin_width)
+            result, centiles = centiles_predict(data,self.bins,self.z)
+            centiles_50 = np.array([centiles[i, 50] for i in range(self.data.shape[0])])
 
-        # predict
-        result, centiles, centiles_32, centiles_50, centiles_68 = centiles_predict(self.data, self.score, self.conf, self.bins,z)
+            rmse = RMSE(self.data[self.score].values[ctr_mask],centiles_50[ctr_mask])
+            smse = SMSE(self.data[self.score].values[ctr_mask],centiles_50[ctr_mask])
+        
+        else:
+            kf = KFold(n_splits=cv_folds,shuffle=True)
+            rmse = []
+            smse = []
+            print(f'Starting {cv_folds} folds of CV...')
+            for i, (train_index, test_index) in enumerate(kf.split(ctr)):
+                ctr_train, ctr_test = ctr[train_index], ctr[test_index]
+                cv_z = centiles_fit(ctr_train,self.bins,self.bin_width)
+                _, cv_centiles = centiles_predict(ctr_test, self.bins,cv_z)
+                cv_50 = np.array([cv_centiles[i, 50] for i in range(ctr_test.shape[0])])
+                r = RMSE(ctr_test[:,1],cv_50)
+                s = SMSE(ctr_test[:,1],cv_50)
+                print(f'CV Fold {i}: RMSE={r:.3f} - SMSE={s:.3f}')
+                rmse.append(r)
+                smse.append(s)
+            print('Done!')
+
+            rmse = np.mean(rmse)
+            smse = np.mean(smse)
+            print(f'Average: RMSE={rmse:.3f} - SMSE={smse:.3f}')
+
+            self.z = centiles_fit(ctr,self.bins,self.bin_width)
+            result, centiles = centiles_predict(data,self.bins,self.z)
 
         self.data['Centiles'] = result
-        self.data['Centiles_pred'] = centiles_50
-        # TODO: Correct Centiles_sigma
-        # avg of 68 - 50th percentile and 50-32th percentile (assume normal) (DOESN"T MAKE SENSE PLOTTED)
-        self.data['Centiles_95'] = np.array([centiles[i, 95] for i in range(self.data.shape[0])])
         self.data['Centiles_5'] = np.array([centiles[i, 5] for i in range(self.data.shape[0])])
-        self.data['Centiles_sigma'] = (centiles_68 - centiles_32)/2
+        self.data['Centiles_32'] = np.array([centiles[i, 32] for i in range(self.data.shape[0])])
+        self.data['Centiles_pred'] = np.array([centiles[i, 50] for i in range(self.data.shape[0])])
+        self.data['Centiles_68'] = np.array([centiles[i, 68] for i in range(self.data.shape[0])])
+        self.data['Centiles_95'] = np.array([centiles[i, 95] for i in range(self.data.shape[0])])
+        self.data['Centiles_sigma'] = (self.data['Centiles_68'] - self.data['Centiles_32'])/2
         self.data['Centiles_residuals'] = self.data[self.score] - self.data['Centiles_pred']
         self.data['Centiles_z'] = self.data['Centiles_residuals']/self.data['Centiles_sigma']
 
-        self.RMSE_Centiles = RMSE(self.data[self.score].values[ctr_mask],self.data['Centiles_pred'].values[ctr_mask])
-        self.SMSE_Centiles = SMSE(self.data[self.score].values[ctr_mask],self.data['Centiles_pred'].values[ctr_mask])
+        self.RMSE_Centiles = rmse
+        self.SMSE_Centiles = smse
 
         self._centiles_rank()
 
