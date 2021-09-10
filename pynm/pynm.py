@@ -27,12 +27,13 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import warnings
 
+from sklearn import gaussian_process
+from sklearn.gaussian_process.kernels import Matern, WhiteKernel, ConstantKernel
+from sklearn.model_selection import KFold
 from statsmodels.stats.diagnostic import het_white
 from statsmodels.tools.tools import add_constant
 from scipy import stats
 
-from sklearn import gaussian_process
-from sklearn.gaussian_process.kernels import Matern, WhiteKernel, ConstantKernel
 from pynm.util import *
 from pynm.models.loess import *
 from pynm.models.centiles import *
@@ -71,11 +72,11 @@ class PyNM:
     bin_count: array
         Number of controls in each bin.
     zm: array
-        Mean of each bin.
+        Mean of each bin (LOESS).
     zstd: array
-        Standard deviation of each bin.
+        Standard deviation of each bin (LOESS).
     zci: array
-        Confidence interval of each bin.
+        Confidence interval of each bin (LOESS).
     z: array
         Centiles for each bin.
     RMSE_LOESS: float
@@ -306,31 +307,62 @@ class PyNM:
                       (self.data.LOESS_z <= +2), 'LOESS_rank'] = 1
         self.data.loc[(self.data.LOESS_z > +2), 'LOESS_rank'] = 2
 
-    def loess_normative_model(self):
-        """ Compute LOESS normative model."""
+    def loess_normative_model(self,cv_folds=1):
+        """ Compute LOESS normative model.
+        
+        Parameters
+        ----------
+        cv_folds: int, default=1
+            How many folds of cross-validation to perform. If 1, there is no cross-validation.
+        """
         if self.bins is None:
             self._create_bins()
         
-        # format data
+        # Format data
         data = self.data[[self.conf, self.score]].to_numpy(dtype=np.float64)
 
-        # take the controls
+        # Take the controls
         ctr_mask, _ = self._get_masks()
         ctr = data[ctr_mask]
 
-        # fit model
-        self.zm,self.zstd,self.zci = loess_fit(ctr,self.bins,self.bin_width)
+        # Cross-validation
+        if cv_folds == 1:
+            self.zm,self.zstd,self.zci = loess_fit(ctr,self.bins,self.bin_width)
+            m, std = loess_predict(self.bins,self.conf,data,self.zm,self.zstd)
 
-        # predict
-        m, std = loess_predict(self.bins,self.conf,self.data,self.zm,self.zstd)
+            rmse = RMSE(self.data[self.score].values[ctr_mask],m[ctr_mask])
+            smse = SMSE(self.data[self.score].values[ctr_mask],m[ctr_mask])
+        
+        else:
+            kf = KFold(n_splits=cv_folds,shuffle=True)
+            rmse = []
+            smse = []
+            print(f'Starting {cv_folds} folds of CV...')
+            for i, (train_index, test_index) in enumerate(kf.split(ctr)):
+                ctr_train, ctr_test = ctr[train_index], ctr[test_index]
+                cv_zm,cv_zstd,_ = loess_fit(ctr_train,self.bins,self.bin_width)
+                cv_m, _ = loess_predict(self.bins,self.conf,ctr_test,cv_zm,cv_zstd)
+                r = RMSE(ctr_test[:,1],cv_m)
+                s = SMSE(ctr_test[:,1],cv_m)
+                print(f'CV Fold {i}: RMSE={r:.3f} - SMSE={s:.3f}')
+                rmse.append(r)
+                smse.append(s)
+            print('Done!')
+
+            rmse = np.mean(rmse)
+            smse = np.mean(smse)
+            print(f'Average: RMSE={rmse:.3f} - SMSE={smse:.3f}')
+
+            self.zm,self.zstd,self.zci = loess_fit(ctr,self.bins,self.bin_width)
+            m, std = loess_predict(self.bins,self.conf,data,self.zm,self.zstd)
 
         self.data['LOESS_pred'] = m
         self.data['LOESS_sigma'] = std
         self.data['LOESS_residuals'] = self.data[self.score] - self.data['LOESS_pred']
         self.data['LOESS_z'] = self.data['LOESS_residuals']/self.data['LOESS_sigma']
 
-        self.RMSE_LOESS = RMSE(self.data[self.score].values[ctr_mask],m[ctr_mask])
-        self.SMSE_LOESS = SMSE(self.data[self.score].values[ctr_mask],m[ctr_mask])
+        self.RMSE_LOESS = rmse
+        self.SMSE_LOESS = smse
 
         self._loess_rank()
 

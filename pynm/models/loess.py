@@ -8,7 +8,7 @@ def loess_fit(train_data,bins,bin_width):
     Parameters
     ----------
     train_data: array
-        Training data for LOESS model.
+        Training data for LOESS model. Column 0 is confound, 1 is score.
     bins: array
         Bins for LOESS model.
     bin_width: float
@@ -44,7 +44,7 @@ def loess_fit(train_data,bins,bin_width):
             zm[i] = mod.params[0]  # mean
 
             # std and confidence intervals
-            prstd, iv_l, iv_u = wls_prediction_std(mod, [0, 0])
+            prstd,_,_ = wls_prediction_std(mod, [0, 0])
             zstd[i] = prstd
             zci[i, :] = mod.conf_int()[0, :]  # [iv_l, iv_u]
 
@@ -55,16 +55,19 @@ def loess_fit(train_data,bins,bin_width):
     
     return zm, zstd, zci
 
-def loess_predict(bins,confound,test_data,zm,zstd):
+def loess_predict(test_data,bins,zm,zstd):
     """ Predict from LOESS model.
 
     Parameters
     ----------
+    test_data: array
+        Test data for LOESS model. Column 0 is confound, 1 is score.
     bins: array
-    confound: str
-    test_data: DataFrame
+        Bins for LOESS model.
     zm: array
+        Mean of each bin.
     zstd: array
+        Standard deviation of each bin.
 
     Returns
     -------
@@ -73,7 +76,7 @@ def loess_predict(bins,confound,test_data,zm,zstd):
     array
         Standard deviation for each subject.
     """
-    dists = [np.abs(conf - bins) for conf in test_data[confound]] #TODO: fix this for numpy format (consistency w/ train)
+    dists = [np.abs(conf - bins) for conf in test_data[:,0]]
     idx = [np.argmin(d) for d in dists]
     m = np.array([zm[i] for i in idx])
     std = np.array([zstd[i] for i in idx])

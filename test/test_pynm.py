@@ -531,3 +531,18 @@ class TestGAMLSS:
                 confounds = ['age','c(sex)','c(site)'])
         with pytest.raises(ValueError):
             m.gamlss_normative_model(mu='score ~ xxx(age) + c(sex) + c(site)',family='SHASHo2')
+
+class TestCV:
+    def test_cv_1_loess(self):
+        data = generate_data(randseed=11)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'],bin_spacing=8,bin_width=1.5)
+        m.loess_normative_model()
+        assert math.isclose(2.3482, np.sum(m.data.LOESS_z), abs_tol=0.00001)
+    
+    def test_cv_3_loess(self):
+        data = generate_data(n_sites=1,sample_size=100,randseed=650)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'],bin_spacing=8,bin_width=1.5)
+        m.loess_normative_model(cv_folds=3)
+        print(type(m.RMSE_LOESS))
+        assert not np.isnan(m.RMSE_LOESS)
+        assert not np.isnan(m.SMSE_LOESS)
