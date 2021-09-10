@@ -421,7 +421,7 @@ class TestPlot:
 
 class TestApprox:
     def test_svgp_init(self):
-        from pynm.approx import SVGP
+        from pynm.models.approx import SVGP
 
         data = generate_data(randseed=3)
         m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
@@ -433,7 +433,7 @@ class TestApprox:
         assert svgp.n_test == 6
     
     def test_svgp_train(self):
-        from pynm.approx import SVGP
+        from pynm.models.approx import SVGP
 
         data = generate_data(randseed=3)
         m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
@@ -446,7 +446,7 @@ class TestApprox:
         assert len(svgp.loss) == 2
     
     def test_svgp_predict(self):
-        from pynm.approx import SVGP
+        from pynm.models.approx import SVGP
 
         data = generate_data(randseed=3)
         m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
@@ -469,7 +469,7 @@ class TestApprox:
 
 class TestGAMLSS:
     def test_get_r_formulas(self):
-        from pynm import gamlss
+        from pynm.models import gamlss
 
         g = gamlss.GAMLSS(mu='score ~ 1')
         mu,sigma,_,_ = g._get_r_formulas('score ~ cs(age) + site',None,None,None)
@@ -496,7 +496,7 @@ class TestGAMLSS:
         assert 'GAMLSS_pred' in m.data.columns
     
     def test_gamlss_invalid_init(self):
-        from pynm import gamlss
+        from pynm.models import gamlss
         
         with pytest.raises(ValueError):
             gamlss.GAMLSS()
@@ -531,3 +531,72 @@ class TestGAMLSS:
                 confounds = ['age','c(sex)','c(site)'])
         with pytest.raises(ValueError):
             m.gamlss_normative_model(mu='score ~ xxx(age) + c(sex) + c(site)',family='SHASHo2')
+
+class TestCV:
+    def test_cv_1_loess(self):
+        data = generate_data(randseed=11)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'],bin_spacing=8,bin_width=1.5)
+        m.loess_normative_model()
+        assert math.isclose(2.3482, np.sum(m.data.LOESS_z), abs_tol=0.00001)
+    
+    def test_cv_3_loess(self):
+        data = generate_data(n_sites=1,sample_size=100,randseed=650)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'],bin_spacing=8,bin_width=1.5)
+        m.loess_normative_model(cv_folds=3)
+        assert not np.isnan(m.RMSE_LOESS)
+        assert not np.isnan(m.SMSE_LOESS)
+    
+    def test_cv_1_centiles(self):
+        data = generate_data(randseed=11)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'],bin_spacing=8,bin_width=1.5)
+        m.centiles_normative_model()
+        assert np.sum(m.data.Centiles) == 446
+    
+    def test_cv_3_centiles(self):
+        data = generate_data(n_sites=1,sample_size=100,randseed=650)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'],bin_spacing=8,bin_width=1.5)
+        m.centiles_normative_model(cv_folds=3)
+        assert not np.isnan(m.RMSE_Centiles)
+        assert not np.isnan(m.SMSE_Centiles)
+    
+    def test_cv_1_gp(self):
+        data = generate_data(sample_size=4, n_sites=2, randseed=3)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
+        m.gp_normative_model()
+        assert 'GP_pred' in m.data.columns
+        assert math.isclose(0,m.data['GP_residuals'].mean(),abs_tol=0.5)
+    
+    def test_cv_3_gp(self):
+        data = generate_data(sample_size=4, n_sites=2, randseed=3)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
+        m.gp_normative_model(cv_folds=3)
+        assert 'GP_pred' in m.data.columns
+        assert math.isclose(0,m.data['GP_residuals'].mean(),abs_tol=0.5)
+    
+    def test_cv_1_svgp(self):
+        data = generate_data(sample_size=4, n_sites=2, randseed=3)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
+        m.gp_normative_model(method='approx')
+
+        assert 'GP_pred' in m.data.columns
+        assert math.isclose(0, m.data['GP_residuals'].mean(), abs_tol=0.5)
+    
+    def test_cv_3_svgp(self):
+        data = generate_data(sample_size=4, n_sites=2, randseed=3)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
+        m.gp_normative_model(method='approx',cv_folds=3,num_epochs=3)
+
+        assert 'GP_pred' in m.data.columns
+        assert math.isclose(0, m.data['GP_residuals'].mean(), abs_tol=0.5)
+    
+    def test_cv_1_gamlss(self):
+        data = generate_data(sample_size=4, n_sites=2, randseed=3)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
+        m.gamlss_normative_model(mu='score ~ cs(age)',sigma='~ age + site',tau='~ c(sex)')
+        assert 'GAMLSS_pred' in m.data.columns
+    
+    def test_cv_3_gamlss(self):
+        data = generate_data(sample_size=4, n_sites=2, randseed=3)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
+        m.gamlss_normative_model(mu='score ~ cs(age)',sigma='~ age + site',tau='~ c(sex)',cv_folds=3)
+        assert 'GAMLSS_pred' in m.data.columns

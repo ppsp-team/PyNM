@@ -92,17 +92,19 @@ class SVGP:
     loss: list
         Loss for each epoch of training.
     """
-    def __init__(self,conf_mat,score,ctr_mask,n_inducing=500,batch_size=256,nu=2.5,length_scale=1,length_scale_bounds=(1e-5,1e5)):
+    def __init__(self,X_train,X_test,y_train,y_test,n_inducing=500,batch_size=256,nu=2.5,length_scale=1,length_scale_bounds=(1e-5,1e5)):
         """ Create a SVGP object.
 
         Parameters
         ----------
-        conf_mat: array
-            Confounds with categorical values dummy encoded.
-        score: array
-            Score/response variable.
-        ctr_mask: array
-            Mask (boolean array) with controls marked True.
+        X_train: array
+            Training confounds with categorical values dummy encoded.
+        X_test: array
+            Test confounds with categorical values dummy encoded.
+        y_train: array
+            Training score/response variable.
+        y_test: array
+            Test score/response variable.
         length_scale: float, default=1
             Length scale parameter of Matern kernel.
         length_scale_bounds: pair of floats >= 0 or 'fixed', default=(1e-5, 1e5)
@@ -115,14 +117,10 @@ class SVGP:
             Number of inducing points for SVGP model.
         """
         # Get data in torch format
-        X = torch.from_numpy(conf_mat)
-        y = torch.from_numpy(score)
-
-        # Split into train/test
-        train_x = X[ctr_mask].contiguous()
-        train_y = y[ctr_mask].contiguous()
-        test_x = X.double().contiguous()
-        test_y = y.double().contiguous()
+        train_x = torch.from_numpy(X_train).contiguous()
+        test_x = torch.from_numpy(X_test).double().contiguous()
+        train_y = torch.from_numpy(y_train).contiguous()
+        test_y = torch.from_numpy(y_test).double().contiguous()
 
         # Create datasets
         train_dataset = TensorDataset(train_x, train_y)

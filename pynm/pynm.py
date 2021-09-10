@@ -27,16 +27,16 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import warnings
 
-import statsmodels.api as sm
-from statsmodels.sandbox.regression.predstd import wls_prediction_std
-from statsmodels.stats.diagnostic import het_white
-from statsmodels.tools.tools import add_constant
-from scipy.stats.mstats import mquantiles
-from scipy import stats
-
 from sklearn import gaussian_process
 from sklearn.gaussian_process.kernels import Matern, WhiteKernel, ConstantKernel
-from pynm.util import * 
+from sklearn.model_selection import KFold
+from statsmodels.stats.diagnostic import het_white
+from statsmodels.tools.tools import add_constant
+from scipy import stats
+
+from pynm.util import *
+from pynm.models.loess import *
+from pynm.models.centiles import *
 
 class PyNM:
     """ Class to run normative modeling using LOESS, centiles, or GP model.
@@ -72,11 +72,11 @@ class PyNM:
     bin_count: array
         Number of controls in each bin.
     zm: array
-        Mean of each bin.
+        Mean of each bin (LOESS).
     zstd: array
-        Standard deviation of each bin.
+        Standard deviation of each bin (LOESS).
     zci: array
-        Confidence interval of each bin.
+        Confidence interval of each bin (LOESS).
     z: array
         Centiles for each bin.
     RMSE_LOESS: float
@@ -307,60 +307,62 @@ class PyNM:
                       (self.data.LOESS_z <= +2), 'LOESS_rank'] = 1
         self.data.loc[(self.data.LOESS_z > +2), 'LOESS_rank'] = 2
 
-    def loess_normative_model(self):
-        """ Compute LOESS normative model."""
+    def loess_normative_model(self,cv_folds=1):
+        """ Compute LOESS normative model.
+        
+        Parameters
+        ----------
+        cv_folds: int, default=1
+            How many folds of cross-validation to perform. If 1, there is no cross-validation.
+        """
         if self.bins is None:
             self._create_bins()
         
-        # format data
+        # Format data
         data = self.data[[self.conf, self.score]].to_numpy(dtype=np.float64)
 
-        # take the controls
+        # Take the controls
         ctr_mask, _ = self._get_masks()
         ctr = data[ctr_mask]
 
-        self.zm = np.zeros(self.bins.shape[0])  # mean
-        self.zstd = np.zeros(self.bins.shape[0])  # standard deviation
-        self.zci = np.zeros([self.bins.shape[0], 2])  # confidence interval
+        # Cross-validation
+        if cv_folds == 1:
+            self.zm,self.zstd,self.zci = loess_fit(ctr,self.bins,self.bin_width)
+            m, std = loess_predict(data,self.bins,self.zm,self.zstd)
 
-        for i, bin_center in enumerate(self.bins):
-            mu = np.array(bin_center)  # bin_center value (age or conf)
-            bin_mask = (abs(ctr[:, :1] - mu) < self.bin_width) * 1.
-            idx = [u for (u, v) in np.argwhere(bin_mask)]
+            rmse = RMSE(self.data[self.score].values[ctr_mask],m[ctr_mask])
+            smse = SMSE(self.data[self.score].values[ctr_mask],m[ctr_mask])
+        
+        else:
+            kf = KFold(n_splits=cv_folds, shuffle=True)
+            rmse = []
+            smse = []
+            print(f'Starting {cv_folds} folds of CV...')
+            for i, (train_index, test_index) in enumerate(kf.split(ctr)):
+                ctr_train, ctr_test = ctr[train_index], ctr[test_index]
+                cv_zm,cv_zstd,_ = loess_fit(ctr_train,self.bins,self.bin_width)
+                cv_m, _ = loess_predict(ctr_test,self.bins,cv_zm,cv_zstd)
+                r = RMSE(ctr_test[:,1],cv_m)
+                s = SMSE(ctr_test[:,1],cv_m)
+                print(f'CV Fold {i}: RMSE={r:.3f} - SMSE={s:.3f}')
+                rmse.append(r)
+                smse.append(s)
+            print('Done!')
 
-            scores = ctr[idx, 1]
-            adj_conf = ctr[idx, 0] - mu  # confound relative to bin center
+            rmse = np.mean(rmse)
+            smse = np.mean(smse)
+            print(f'Average: RMSE={rmse:.3f} - SMSE={smse:.3f}')
 
-            # if more than 2 non NaN values do the model
-            if (~np.isnan(scores)).sum() > 2:
-                mod = sm.WLS(scores, sm.tools.add_constant(adj_conf, 
-                                                           has_constant='add'),
-                             missing='drop', weight=bin_mask.flatten()[idx],
-                             hasconst=True).fit()
-                self.zm[i] = mod.params[0]  # mean
-
-                # std and confidence intervals
-                prstd, iv_l, iv_u = wls_prediction_std(mod, [0, 0])
-                self.zstd[i] = prstd
-                self.zci[i, :] = mod.conf_int()[0, :]  # [iv_l, iv_u]
-
-            else:
-                self.zm[i] = np.nan
-                self.zci[i] = np.nan
-                self.zstd[i] = np.nan
-
-        dists = [np.abs(conf - self.bins) for conf in self.data[self.conf]]
-        idx = [np.argmin(d) for d in dists]
-        m = np.array([self.zm[i] for i in idx])
-        std = np.array([self.zstd[i] for i in idx])
+            self.zm,self.zstd,self.zci = loess_fit(ctr,self.bins,self.bin_width)
+            m, std = loess_predict(data,self.bins,self.zm,self.zstd)
 
         self.data['LOESS_pred'] = m
         self.data['LOESS_sigma'] = std
         self.data['LOESS_residuals'] = self.data[self.score] - self.data['LOESS_pred']
         self.data['LOESS_z'] = self.data['LOESS_residuals']/self.data['LOESS_sigma']
 
-        self.RMSE_LOESS = RMSE(self.data[self.score].values[ctr_mask],m[ctr_mask])
-        self.SMSE_LOESS = SMSE(self.data[self.score].values[ctr_mask],m[ctr_mask])
+        self.RMSE_LOESS = rmse
+        self.SMSE_LOESS = smse
 
         self._loess_rank()
 
@@ -375,61 +377,69 @@ class PyNM:
                       (self.data.Centiles_pred <= 95), 'Centiles_rank'] = 1
         self.data.loc[(self.data.Centiles_pred > 95), 'Centiles_rank'] = 2
 
-    def centiles_normative_model(self):
-        """ Compute centiles normative model."""
+    def centiles_normative_model(self, cv_folds=1):
+        """ Compute centiles normative model.
+
+        Parameters
+        ----------
+        cv_folds: int, default=1
+            How many folds of cross-validation to perform. If 1, there is no cross-validation.
+        """
         if self.bins is None:
             self._create_bins()
 
-        # format data
+        # Format data
         data = self.data[[self.conf, self.score]].to_numpy(dtype=np.float64)
 
-        # take the controls
+        # Take the controls
         ctr_mask, _ = self._get_masks()
         ctr = data[ctr_mask]
 
-        self.z = np.zeros([self.bins.shape[0], 101])  # centiles
+        # Cross-validation
+        if cv_folds == 1:
+            self.z = centiles_fit(ctr,self.bins,self.bin_width)
+            result, centiles = centiles_predict(data,self.bins,self.z)
+            centiles_50 = np.array([centiles[i, 50] for i in range(self.data.shape[0])])
 
-        for i, bin_center in enumerate(self.bins):
-            mu = np.array(bin_center)  # bin_center value (age or conf)
-            bin_mask = (abs(ctr[:, :1] - mu) <
-                        self.bin_width) * 1.  # one hot mask
-            idx = [u for (u, v) in np.argwhere(bin_mask)]
-            scores = ctr[idx, 1]
+            rmse = RMSE(self.data[self.score].values[ctr_mask],centiles_50[ctr_mask])
+            smse = SMSE(self.data[self.score].values[ctr_mask],centiles_50[ctr_mask])
+        
+        else:
+            kf = KFold(n_splits=cv_folds, shuffle=True)
+            rmse = []
+            smse = []
+            print(f'Starting {cv_folds} folds of CV...')
+            for i, (train_index, test_index) in enumerate(kf.split(ctr)):
+                ctr_train, ctr_test = ctr[train_index], ctr[test_index]
+                cv_z = centiles_fit(ctr_train,self.bins,self.bin_width)
+                _, cv_centiles = centiles_predict(ctr_test, self.bins,cv_z)
+                cv_50 = np.array([cv_centiles[i, 50] for i in range(ctr_test.shape[0])])
+                r = RMSE(ctr_test[:,1],cv_50)
+                s = SMSE(ctr_test[:,1],cv_50)
+                print(f'CV Fold {i}: RMSE={r:.3f} - SMSE={s:.3f}')
+                rmse.append(r)
+                smse.append(s)
+            print('Done!')
 
-            # if more than 2 non NaN values do the model
-            if (~np.isnan(scores)).sum() > 2:
-                # centiles
-                self.z[i, :] = mquantiles(scores, prob=np.linspace(0, 1, 101), alphap=0.4, betap=0.4)
-            else:
-                self.z[i] = np.nan
+            rmse = np.mean(rmse)
+            smse = np.mean(smse)
+            print(f'Average: RMSE={rmse:.3f} - SMSE={smse:.3f}')
 
-        dists = [np.abs(conf - self.bins) for conf in self.data[self.conf]]
-        idx = [np.argmin(d) for d in dists]
-        centiles = np.array([self.z[i] for i in idx])
-        centiles_50 = np.array([centiles[i, 50] for i in range(self.data.shape[0])])
-        centiles_68 = np.array([centiles[i, 68] for i in range(self.data.shape[0])])
-        centiles_32 = np.array([centiles[i, 32] for i in range(self.data.shape[0])])
-
-        result = np.zeros(centiles.shape[0])
-        max_mask = self.data[self.score] >= np.max(centiles, axis=1)
-        min_mask = self.data[self.score] < np.min(centiles, axis=1)
-        else_mask = ~(max_mask | min_mask)
-        result[max_mask] = 100
-        result[min_mask] = 0
-        result[else_mask] = np.array([np.argmin(self.data[self.score][i] >= centiles[i]) for i in range(self.data.shape[0])])[else_mask]
+            self.z = centiles_fit(ctr,self.bins,self.bin_width)
+            result, centiles = centiles_predict(data,self.bins,self.z)
 
         self.data['Centiles'] = result
-        self.data['Centiles_pred'] = centiles_50
-        # TODO: Correct Centiles_sigma
-        # avg of 68 - 50th percentile and 50-32th percentile (assume normal) (DOESN"T MAKE SENSE PLOTTED)
-        self.data['Centiles_95'] = np.array([centiles[i, 95] for i in range(self.data.shape[0])])
         self.data['Centiles_5'] = np.array([centiles[i, 5] for i in range(self.data.shape[0])])
-        self.data['Centiles_sigma'] = (centiles_68 - centiles_32)/2
+        self.data['Centiles_32'] = np.array([centiles[i, 32] for i in range(self.data.shape[0])])
+        self.data['Centiles_pred'] = np.array([centiles[i, 50] for i in range(self.data.shape[0])])
+        self.data['Centiles_68'] = np.array([centiles[i, 68] for i in range(self.data.shape[0])])
+        self.data['Centiles_95'] = np.array([centiles[i, 95] for i in range(self.data.shape[0])])
+        self.data['Centiles_sigma'] = (self.data['Centiles_68'] - self.data['Centiles_32'])/2
         self.data['Centiles_residuals'] = self.data[self.score] - self.data['Centiles_pred']
         self.data['Centiles_z'] = self.data['Centiles_residuals']/self.data['Centiles_sigma']
 
-        self.RMSE_Centiles = RMSE(self.data[self.score].values[ctr_mask],self.data['Centiles_pred'].values[ctr_mask])
-        self.SMSE_Centiles = SMSE(self.data[self.score].values[ctr_mask],self.data['Centiles_pred'].values[ctr_mask])
+        self.RMSE_Centiles = rmse
+        self.SMSE_Centiles = smse
 
         self._centiles_rank()
 
@@ -504,7 +514,7 @@ class PyNM:
         if p_het < 0.05:
             warnings.warn("The residuals are heteroskedastic!")
         
-    def gp_normative_model(self, length_scale=1, nu=2.5, length_scale_bounds=(1e-5,1e5),method='auto', batch_size=256, n_inducing=500, num_epochs=20):
+    def gp_normative_model(self, length_scale=1, nu=2.5, length_scale_bounds=(1e-5,1e5),method='auto', batch_size=256, n_inducing=500, num_epochs=20, cv_folds=1):
         """ Compute gaussian process normative model. Gaussian process regression is computed using
         the Matern Kernel with an added constant and white noise. For Matern kernel see scikit-learn documentation:
         https://scikit-learn.org/stable/modules/generated/sklearn.gaussian_process.kernels.Matern.html.
@@ -526,6 +536,8 @@ class PyNM:
             Number of inducing points for SVGP model.
         num_epochs: int, default=20
             Number of epochs (passes through entire dataset) to train SVGP for.
+        cv_folds: int, default=1
+            How many folds of cross-validation to perform. If 1, there is no cross-validation.
         """
         # get proband and control masks
         ctr_mask, _ = self._get_masks()
@@ -533,43 +545,72 @@ class PyNM:
         # get matrix of confounds
         conf_mat = self._get_conf_mat()
 
-        # Define independent and response variables
-        y = self.data[self.score][ctr_mask].to_numpy().reshape(-1, 1)
-        X = conf_mat[ctr_mask]
-        
+        # get score        
         score = self._get_score()
         
         if self._use_approx(method=method):
             self.loss = self._svgp_normative_model(conf_mat,score,ctr_mask,nu=nu,length_scale=length_scale, length_scale_bounds=length_scale_bounds,
-                                                batch_size=batch_size,n_inducing=n_inducing,num_epochs=num_epochs)
+                                                batch_size=batch_size,n_inducing=n_inducing,num_epochs=num_epochs,cv_folds=cv_folds)
 
         else:
+            kernel = ConstantKernel() + WhiteKernel(noise_level=1) + Matern(length_scale=length_scale, nu=nu,length_scale_bounds=length_scale_bounds)
+            gp = gaussian_process.GaussianProcessRegressor(kernel=kernel)
+
             # Define independent and response variables
             y = score[ctr_mask].reshape(-1,1)
             X = conf_mat[ctr_mask]
 
-            # Fit normative model on controls
-            kernel = ConstantKernel() + WhiteKernel(noise_level=1) + Matern(length_scale=length_scale, nu=nu,length_scale_bounds=length_scale_bounds)
-            gp = gaussian_process.GaussianProcessRegressor(kernel=kernel)
-            gp.fit(X, y)
+            if cv_folds == 1:
+                gp.fit(X, y)
+                y_pred, sigma = gp.predict(conf_mat, return_std=True)
+                y_true = self.data[self.score].to_numpy().reshape(-1,1)
 
-            #Predict normative values
-            y_pred, sigma = gp.predict(conf_mat, return_std=True)
-            y_true = self.data[self.score].to_numpy().reshape(-1,1)
-            residuals = y_true - y_pred
+                rmse = RMSE(y_true[ctr_mask],y_pred[ctr_mask])
+                smse = SMSE(y_true[ctr_mask],y_pred[ctr_mask])
+                msll = MSLL(y_true[ctr_mask],y_pred[ctr_mask],sigma[ctr_mask])
+            else:
+                kf = KFold(n_splits=cv_folds, shuffle=True)
+                rmse = []
+                smse = []
+                msll = []
+                print(f'Starting {cv_folds} folds of CV...')
+                for i, (train_index, test_index) in enumerate(kf.split(X)):
+                    X_train, X_test = X[train_index], X[test_index]
+                    y_train, y_test = y[train_index], y[test_index]
+                    gp.fit(X_train, y_train)
+                    y_pred, sigma = gp.predict(X_test, return_std=True)
+
+                    r = RMSE(y_test,y_pred)
+                    s = SMSE(y_test,y_pred)
+                    m = MSLL(y_test,y_pred,sigma)
+                    print(f'CV Fold {i}: RMSE={r:.3f} - SMSE={s:.3f} - MSLL={m:.3f}')
+                    rmse.append(r)
+                    smse.append(s)
+                    msll.append(m)
+                print('Done!')
+
+                rmse = np.mean(rmse)
+                smse = np.mean(smse)
+                msll = np.mean(msll)
+                print(f'Average: RMSE={rmse:.3f} - SMSE={smse:.3f} - MSLL={msll:.3f}')
+
+                gp.fit(X, y)
+                y_pred, sigma = gp.predict(conf_mat, return_std=True)
+                y_true = self.data[self.score].to_numpy().reshape(-1,1)
 
             self.data['GP_pred'] = y_pred
             self.data['GP_sigma'] = sigma
-            self.data['GP_residuals'] = residuals
+            self.data['GP_residuals'] = y_true - y_pred
             self.data['GP_z'] = self.data['GP_residuals'] / self.data['GP_sigma']
 
-            self.RMSE_GP = RMSE(y_true[ctr_mask],y_pred[ctr_mask])
-            self.SMSE_GP = SMSE(y_true[ctr_mask],y_pred[ctr_mask])
-            self.MSLL_GP = MSLL(y_true[ctr_mask],y_pred[ctr_mask],sigma[ctr_mask])
+            self.RMSE_GP = rmse
+            self.SMSE_GP = smse
+            self.MSLL_GP = msll
 
         self._test_gp_residuals(conf_mat)
 
-    def _svgp_normative_model(self,conf_mat,score,ctr_mask,nu=2.5,length_scale=1,length_scale_bounds=(1e-5,1e5),batch_size=256,n_inducing=500,num_epochs=20):
+    def _svgp_normative_model(self,conf_mat,score,ctr_mask,nu=2.5,length_scale=1,length_scale_bounds=(1e-5,1e5),
+                                batch_size=256,n_inducing=500,num_epochs=20,cv_folds=1):
         """ Compute SVGP model. See GPyTorch documentation for further details:
         https://docs.gpytorch.ai/en/v1.1.1/examples/04_Variational_and_Approximate_GPs/SVGP_Regression_CUDA.html#Creating-a-SVGP-Model.
 
@@ -593,6 +634,8 @@ class PyNM:
             Number of inducing points for SVGP model.
         num_epochs: int, default=20
             Number of epochs (passes through entire dataset) to train SVGP for.
+        cv_folds: int, default=1
+            How many folds of cross-validation to perform. If 1, there is no cross-validation.
         
         Raises
         ------
@@ -605,29 +648,83 @@ class PyNM:
             Loss per epoch of training (temp for debugging).
         """
         try:
-            from pynm.approx import SVGP
+            from pynm.models.approx import SVGP
         except:
             raise ImportError("GPyTorch and it's dependencies must be installed to use the SVGP model.")
         else:
-            svgp = SVGP(conf_mat,score,ctr_mask,n_inducing=n_inducing,batch_size=batch_size,nu=nu,length_scale=length_scale,length_scale_bounds=length_scale_bounds)
-            svgp.train(num_epochs=num_epochs)
-            means, sigma = svgp.predict()
+            if cv_folds == 1:
+                svgp = SVGP(conf_mat[ctr_mask],conf_mat,score[ctr_mask],score,n_inducing=n_inducing,batch_size=batch_size,nu=nu,
+                            length_scale=length_scale,length_scale_bounds=length_scale_bounds)
+                
+                svgp.train(num_epochs=num_epochs)
+                means, sigma = svgp.predict()
 
-            y_pred = means.numpy()
-            y_true = score
-            residuals = (y_true - y_pred).astype(float)
+                y_pred = means.numpy()
+                y_true = score
+                residuals = (y_true - y_pred).astype(float)
+
+                rmse = RMSE(y_true[ctr_mask],y_pred[ctr_mask])
+                smse = SMSE(y_true[ctr_mask],y_pred[ctr_mask])
+                msll = MSLL(y_true[ctr_mask],y_pred[ctr_mask],sigma.numpy()[ctr_mask])
+
+            else:
+                X = conf_mat[ctr_mask]
+                y = score[ctr_mask]
+
+                kf = KFold(n_splits=cv_folds, shuffle=True)
+                rmse = []
+                smse = []
+                msll = []
+                print(f'Starting {cv_folds} folds of CV...')
+                for i, (train_index, test_index) in enumerate(kf.split(X)):
+                    X_train, X_test = X[train_index], X[test_index]
+                    y_train, y_test = y[train_index], y[test_index]
+
+                    cv_svgp = SVGP(X_train,X_test,y_train,y_test,n_inducing=n_inducing,batch_size=batch_size,nu=nu,
+                            length_scale=length_scale,length_scale_bounds=length_scale_bounds)
+                
+                    cv_svgp.train(num_epochs=num_epochs)
+                    cv_means, cv_sigma = cv_svgp.predict()
+
+                    cv_y_pred = cv_means.numpy()
+                    cv_residuals = (y_test - cv_y_pred).astype(float)
+
+                    r = RMSE(y_test,cv_y_pred)
+                    s = SMSE(y_test,cv_y_pred)
+                    m = MSLL(y_test,cv_y_pred,cv_sigma.numpy())
+
+                    print(f'CV Fold {i}: RMSE={r:.3f} - SMSE={s:.3f} - MSLL={m:.3f}')
+                    rmse.append(r)
+                    smse.append(s)
+                    msll.append(m)
+                print('Done!')
+
+                rmse = np.mean(rmse)
+                smse = np.mean(smse)
+                msll = np.mean(msll)
+                print(f'Average: RMSE={rmse:.3f} - SMSE={smse:.3f} - MSLL={msll:.3f}')
+
+                svgp = SVGP(conf_mat[ctr_mask],conf_mat,score[ctr_mask],score,n_inducing=n_inducing,batch_size=batch_size,nu=nu,
+                            length_scale=length_scale,length_scale_bounds=length_scale_bounds)
+                
+                svgp.train(num_epochs=num_epochs)
+                means, sigma = svgp.predict()
+
+                y_pred = means.numpy()
+                y_true = score
+                residuals = (y_true - y_pred).astype(float)
 
             self.data['GP_pred'] = y_pred
             self.data['GP_sigma'] = sigma.numpy()
             self.data['GP_residuals'] = residuals
             self.data['GP_z'] = self.data['GP_residuals']/self.data['GP_sigma']
 
-            self.RMSE_GP = RMSE(y_true[ctr_mask],y_pred[ctr_mask])
-            self.SMSE_GP = SMSE(y_true[ctr_mask],y_pred[ctr_mask])
-            self.MSLL_GP = MSLL(y_true[ctr_mask],y_pred[ctr_mask],sigma.numpy()[ctr_mask])
+            self.RMSE_GP = rmse
+            self.SMSE_GP = smse
+            self.MSLL_GP = msll
 
     
-    def gamlss_normative_model(self,mu=None,sigma=None,nu=None,tau=None,family='SHASHo2',method='RS',lib_loc=None):
+    def gamlss_normative_model(self,mu=None,sigma=None,nu=None,tau=None,family='SHASHo2',method='RS',lib_loc=None,cv_folds=1):
         """Compute GAMLSS normative model.
         
         Parameters
@@ -648,6 +745,8 @@ class PyNM:
             Specifying 'mixed(n,m)' will use the RS algorithm for n iterations and the CG algorithm for up to m additional iterations.
         lib_loc: str, default=None
             Path to location of installed GAMLSS package.
+        cv_folds: int, default=1
+            How many folds of cross-validation to perform. If 1, there is no cross-validation.
         
         Notes
         -----
@@ -655,7 +754,7 @@ class PyNM:
         as a factor: e.g. 'random(as.factor(COL))'.
         """
         try:
-            from pynm.gamlss import GAMLSS
+            from pynm.models.gamlss import GAMLSS
         except:
             raise ImportError("R and the GAMLSS package must be installed to use GAMLSS model, see documentation for installation help.")
         else:
@@ -667,25 +766,61 @@ class PyNM:
 
             nan_cols = ['LOESS_pred','LOESS_residuals','LOESS_z','LOESS_rank','LOESS_sigma',
             'Centiles_pred','Centiles_residuals','Centiles_z','Centiles','Centiles_rank','Centiles_sigma',
-            'Centiles_95','Centiles_5']
+            'Centiles_95','Centiles_5','Centiles_32','Centiles_68']
             gamlss_data = self.data[[c for c in self.data.columns if c not in nan_cols]]
 
-            gamlss.fit(gamlss_data[ctr_mask])
-            
-            try:
+            if cv_folds == 1:
+                gamlss.fit(gamlss_data[ctr_mask])
+                
                 mu_pred = gamlss.predict(gamlss_data,what='mu')
                 sigma_pred = gamlss.predict(gamlss_data,what='sigma')
-            except:
-                raise RuntimeError("GAMLSS fitting algorithm has not yet converged - adjust 'method' parameter.")
+                
+                rmse = RMSE(mu_pred[ctr_mask],self.data[self.score].values[ctr_mask])
+                smse = SMSE(mu_pred[ctr_mask],self.data[self.score].values[ctr_mask])
+                msll = MSLL(mu_pred[ctr_mask],self.data[self.score].values[ctr_mask],sigma_pred[ctr_mask])
+            
             else:
-                self.data['GAMLSS_pred'] = mu_pred
-                self.data['GAMLSS_sigma'] = sigma_pred
-                self.data['GAMLSS_residuals'] = self.data[self.score] - self.data['GAMLSS_pred']
-                self.data['GAMLSS_z'] = self.data['GAMLSS_residuals']/self.data['GAMLSS_sigma']
+                X = gamlss_data[ctr_mask]
+                kf = KFold(n_splits=cv_folds, shuffle=True)
+                rmse = []
+                smse = []
+                msll = []
+                print(f'Starting {cv_folds} folds of CV...')
+                for i, (train_index, test_index) in enumerate(kf.split(X)):
+                    X_train, X_test = X.iloc[train_index], X.iloc[test_index]
 
-                self.RMSE_GAMLSS = RMSE(mu_pred[ctr_mask],self.data[self.score].values[ctr_mask])
-                self.SMSE_GAMLSS = SMSE(mu_pred[ctr_mask],self.data[self.score].values[ctr_mask])
-                self.MSLL_GAMLSS = MSLL(mu_pred[ctr_mask],self.data[self.score].values[ctr_mask],sigma_pred[ctr_mask])
+                    gamlss.fit(X_train)
+
+                    cv_mu_pred = gamlss.predict(X_test,what='mu')
+                    cv_sigma_pred = gamlss.predict(X_test,what='sigma')
+
+                    r = RMSE(cv_mu_pred,X_test[self.score].values)
+                    s = SMSE(cv_mu_pred,X_test[self.score].values)
+                    m = MSLL(cv_mu_pred,X_test[self.score].values,cv_sigma_pred)
+                    print(f'CV Fold {i}: RMSE={r:.3f} - SMSE={s:.3f} - MSLL={m:.3f}')
+                    rmse.append(r)
+                    smse.append(s)
+                    msll.append(m)
+                print('Done!')
+
+                rmse = np.mean(rmse)
+                smse = np.mean(smse)
+                msll = np.mean(msll)
+                print(f'Average: RMSE={rmse:.3f} - SMSE={smse:.3f} - MSLL={msll:.3f}')
+
+                gamlss.fit(gamlss_data[ctr_mask])
+                
+                mu_pred = gamlss.predict(gamlss_data,what='mu')
+                sigma_pred = gamlss.predict(gamlss_data,what='sigma')
+
+            self.data['GAMLSS_pred'] = mu_pred
+            self.data['GAMLSS_sigma'] = sigma_pred
+            self.data['GAMLSS_residuals'] = self.data[self.score] - self.data['GAMLSS_pred']
+            self.data['GAMLSS_z'] = self.data['GAMLSS_residuals']/self.data['GAMLSS_sigma']
+
+            self.RMSE_GAMLSS = rmse
+            self.SMSE_GAMLSS = smse
+            self.MSLL_GAMLSS = msll
 
     def _plot(self, ax,kind=None,gp_xaxis=None,gamlss_xaxis=None):
         """ Plot the data with the normative model overlaid.
