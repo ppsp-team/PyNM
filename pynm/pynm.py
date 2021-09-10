@@ -764,25 +764,22 @@ class PyNM:
 
             nan_cols = ['LOESS_pred','LOESS_residuals','LOESS_z','LOESS_rank','LOESS_sigma',
             'Centiles_pred','Centiles_residuals','Centiles_z','Centiles','Centiles_rank','Centiles_sigma',
-            'Centiles_95','Centiles_5']
+            'Centiles_95','Centiles_5','Centiles_32','Centiles_68']
             gamlss_data = self.data[[c for c in self.data.columns if c not in nan_cols]]
 
             gamlss.fit(gamlss_data[ctr_mask])
             
-            try:
-                mu_pred = gamlss.predict(gamlss_data,what='mu')
-                sigma_pred = gamlss.predict(gamlss_data,what='sigma')
-            except:
-                raise RuntimeError("GAMLSS fitting algorithm has not yet converged - adjust 'method' parameter.")
-            else:
-                self.data['GAMLSS_pred'] = mu_pred
-                self.data['GAMLSS_sigma'] = sigma_pred
-                self.data['GAMLSS_residuals'] = self.data[self.score] - self.data['GAMLSS_pred']
-                self.data['GAMLSS_z'] = self.data['GAMLSS_residuals']/self.data['GAMLSS_sigma']
+            mu_pred = gamlss.predict(gamlss_data,what='mu')
+            sigma_pred = gamlss.predict(gamlss_data,what='sigma')
 
-                self.RMSE_GAMLSS = RMSE(mu_pred[ctr_mask],self.data[self.score].values[ctr_mask])
-                self.SMSE_GAMLSS = SMSE(mu_pred[ctr_mask],self.data[self.score].values[ctr_mask])
-                self.MSLL_GAMLSS = MSLL(mu_pred[ctr_mask],self.data[self.score].values[ctr_mask],sigma_pred[ctr_mask])
+            self.data['GAMLSS_pred'] = mu_pred
+            self.data['GAMLSS_sigma'] = sigma_pred
+            self.data['GAMLSS_residuals'] = self.data[self.score] - self.data['GAMLSS_pred']
+            self.data['GAMLSS_z'] = self.data['GAMLSS_residuals']/self.data['GAMLSS_sigma']
+
+            self.RMSE_GAMLSS = RMSE(mu_pred[ctr_mask],self.data[self.score].values[ctr_mask])
+            self.SMSE_GAMLSS = SMSE(mu_pred[ctr_mask],self.data[self.score].values[ctr_mask])
+            self.MSLL_GAMLSS = MSLL(mu_pred[ctr_mask],self.data[self.score].values[ctr_mask],sigma_pred[ctr_mask])
 
     def _plot(self, ax,kind=None,gp_xaxis=None,gamlss_xaxis=None):
         """ Plot the data with the normative model overlaid.
