@@ -33,7 +33,7 @@ class GAMLSS:
             Fitted GAMLSS model.
         """
 
-    def __init__(self,mu=None,sigma=None,nu=None,tau=None,family='SHASHo2',method='RS',lib_loc=None,score=None,confounds=None):
+    def __init__(self,mu=None,sigma=None,nu=None,tau=None,family='SHASHo2',method='RS',score=None,confounds=None):
         """Create GAMLSS object. Formulas must be written for R, using functions available in the GAMLSS package.
         
         Parameters
@@ -52,8 +52,6 @@ class GAMLSS:
         method: str, default = 'RS'
             Method for fitting GAMLSS. Can be 'RS' (Rigby and Stasinopoulos algorithm), 'CG' (Cole and Green algorithm) or 'mixed(n,m)' where n & m are integers.
             Specifying 'mixed(n,m)' will use the RS algorithm for n iterations and the CG algorithm for up to m additional iterations.
-        lib_loc: str, default=None
-            Path to location of installed GAMLSS package.
         score: str, default=None
             Label of score in DataFrame.
         confounds: list, default=None
@@ -67,15 +65,10 @@ class GAMLSS:
         numpy2ri.activate()
         pandas2ri.activate()
 
-        if lib_loc is None:
-            self.gamlss_data = importr('gamlss.data')
-            self.gamlss_dist = importr('gamlss.dist')
-            self.gamlss = importr('gamlss')
-            self.base = importr('base')
-        else:
-            self.gamlss_data = importr('gamlss.data',lib_loc=lib_loc)
-            self.gamlss_dist = importr('gamlss.dist',lib_loc=lib_loc)
-            self.gamlss = importr('gamlss',lib_loc=lib_loc)
+        self.gamlss_data = importr('gamlss.data')
+        self.gamlss_dist = importr('gamlss.dist')
+        self.gamlss = importr('gamlss')
+        self.base = importr('base')
         
         self.score = score
         self.confounds = confounds

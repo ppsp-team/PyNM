@@ -56,7 +56,6 @@ usage: pynm [-h] --pheno_p PHENO_P --out_p OUT_P --confounds CONFOUNDS --score
             [--gp_nu NU] [--GAMLSS] [--gamlss_mu GAMLSS_MU]
             [--gamlss_sigma GAMLSS_SIGMA] [--gamlss_nu GAMLSS_NU]
             [--gamlss_tau GAMLSS_TAU] [--gamlss_family GAMLSS_FAMILY]
-            [--gamlss_lib_loc GAMLSS_LIB_LOC]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -135,9 +134,6 @@ optional arguments:
                         Family of distributions to use for fitting, default is
                         'SHASHo2'. See R documentation for GAMLSS package for
                         other available families of distributions.
-  --gamlss_lib_loc GAMLSS_LIB_LOC
-                        Path to location of installed GAMLSS package. Default
-                        is None.
 ```
 ## API Example
 ```python

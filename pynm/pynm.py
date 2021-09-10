@@ -724,7 +724,7 @@ class PyNM:
             self.MSLL_GP = msll
 
     
-    def gamlss_normative_model(self,mu=None,sigma=None,nu=None,tau=None,family='SHASHo2',method='RS',lib_loc=None,cv_folds=1):
+    def gamlss_normative_model(self,mu=None,sigma=None,nu=None,tau=None,family='SHASHo2',method='RS',cv_folds=1):
         """Compute GAMLSS normative model.
         
         Parameters
@@ -743,8 +743,6 @@ class PyNM:
         method: str, default = 'RS'
             Method for fitting GAMLSS. Can be 'RS' (Rigby and Stasinopoulos algorithm), 'CG' (Cole and Green algorithm) or 'mixed(n,m)' where n & m are integers.
             Specifying 'mixed(n,m)' will use the RS algorithm for n iterations and the CG algorithm for up to m additional iterations.
-        lib_loc: str, default=None
-            Path to location of installed GAMLSS package.
         cv_folds: int, default=1
             How many folds of cross-validation to perform. If 1, there is no cross-validation.
         
@@ -762,7 +760,7 @@ class PyNM:
             ctr_mask, _ = self._get_masks()
 
             gamlss = GAMLSS(mu=mu,sigma=sigma,nu=nu,tau=tau,family=family,method=method,
-                            lib_loc=lib_loc,score=self.score,confounds=self.confounds)
+                            score=self.score,confounds=self.confounds)
 
             nan_cols = ['LOESS_pred','LOESS_residuals','LOESS_z','LOESS_rank','LOESS_sigma',
             'Centiles_pred','Centiles_residuals','Centiles_z','Centiles','Centiles_rank','Centiles_sigma',

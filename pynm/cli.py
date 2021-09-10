@@ -87,8 +87,6 @@ def _cli_parser():
     parser.add_argument("--gamlss_family",default='SHASHo2',dest='gamlss_family',
                         help="Family of distributions to use for fitting, default is 'SHASHo2'. "
                         "See R documentation for GAMLSS package for other available families of distributions.")
-    parser.add_argument("--gamlss_lib_loc",default=None,dest='gamlss_lib_loc',
-                        help="Path to location of installed GAMLSS package. Default is None.")
     return parser.parse_args()
 
 def get_bounds(bounds):
@@ -140,7 +138,7 @@ def main():
                         n_inducing=params['gp_n_inducing'],num_epochs=params['gp_num_epochs'])
     if args.GAMLSS:
         m.gamlss_normative_model(mu=params['gamlss_mu'],sigma=params['gamlss_sigma'],nu=params['gamlss_nu'],
-                        tau=params['gamlss_tau'],family=params['gamlss_family'],lib_loc=params['gamlss_lib_loc'])
+                        tau=params['gamlss_tau'],family=params['gamlss_family'])
     
     m.data.to_csv(params['out_p'],index=False)
     
