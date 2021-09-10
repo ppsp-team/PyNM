@@ -588,3 +588,15 @@ class TestCV:
 
         assert 'GP_pred' in m.data.columns
         assert math.isclose(0, m.data['GP_residuals'].mean(), abs_tol=0.5)
+    
+    def test_cv_1_gamlss(self):
+        data = generate_data(sample_size=4, n_sites=2, randseed=3)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
+        m.gamlss_normative_model(mu='score ~ cs(age)',sigma='~ age + site',tau='~ c(sex)')
+        assert 'GAMLSS_pred' in m.data.columns
+    
+    def test_cv_3_gamlss(self):
+        data = generate_data(sample_size=4, n_sites=2, randseed=3)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
+        m.gamlss_normative_model(mu='score ~ cs(age)',sigma='~ age + site',tau='~ c(sex)',cv_folds=3)
+        assert 'GAMLSS_pred' in m.data.columns

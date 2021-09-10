@@ -334,7 +334,7 @@ class PyNM:
             smse = SMSE(self.data[self.score].values[ctr_mask],m[ctr_mask])
         
         else:
-            kf = KFold(n_splits=cv_folds,shuffle=True)
+            kf = KFold(n_splits=cv_folds, shuffle=True)
             rmse = []
             smse = []
             print(f'Starting {cv_folds} folds of CV...')
@@ -405,7 +405,7 @@ class PyNM:
             smse = SMSE(self.data[self.score].values[ctr_mask],centiles_50[ctr_mask])
         
         else:
-            kf = KFold(n_splits=cv_folds,shuffle=True)
+            kf = KFold(n_splits=cv_folds, shuffle=True)
             rmse = []
             smse = []
             print(f'Starting {cv_folds} folds of CV...')
@@ -569,7 +569,7 @@ class PyNM:
                 smse = SMSE(y_true[ctr_mask],y_pred[ctr_mask])
                 msll = MSLL(y_true[ctr_mask],y_pred[ctr_mask],sigma[ctr_mask])
             else:
-                kf = KFold(n_splits=cv_folds)
+                kf = KFold(n_splits=cv_folds, shuffle=True)
                 rmse = []
                 smse = []
                 msll = []
@@ -671,7 +671,7 @@ class PyNM:
                 X = conf_mat[ctr_mask]
                 y = score[ctr_mask]
 
-                kf = KFold(n_splits=cv_folds)
+                kf = KFold(n_splits=cv_folds, shuffle=True)
                 rmse = []
                 smse = []
                 msll = []
@@ -724,7 +724,7 @@ class PyNM:
             self.MSLL_GP = msll
 
     
-    def gamlss_normative_model(self,mu=None,sigma=None,nu=None,tau=None,family='SHASHo2',method='RS',lib_loc=None):
+    def gamlss_normative_model(self,mu=None,sigma=None,nu=None,tau=None,family='SHASHo2',method='RS',lib_loc=None,cv_folds=1):
         """Compute GAMLSS normative model.
         
         Parameters
@@ -745,6 +745,8 @@ class PyNM:
             Specifying 'mixed(n,m)' will use the RS algorithm for n iterations and the CG algorithm for up to m additional iterations.
         lib_loc: str, default=None
             Path to location of installed GAMLSS package.
+        cv_folds: int, default=1
+            How many folds of cross-validation to perform. If 1, there is no cross-validation.
         
         Notes
         -----
@@ -767,19 +769,58 @@ class PyNM:
             'Centiles_95','Centiles_5','Centiles_32','Centiles_68']
             gamlss_data = self.data[[c for c in self.data.columns if c not in nan_cols]]
 
-            gamlss.fit(gamlss_data[ctr_mask])
+            if cv_folds == 1:
+                gamlss.fit(gamlss_data[ctr_mask])
+                
+                mu_pred = gamlss.predict(gamlss_data,what='mu')
+                sigma_pred = gamlss.predict(gamlss_data,what='sigma')
+                
+                rmse = RMSE(mu_pred[ctr_mask],self.data[self.score].values[ctr_mask])
+                smse = SMSE(mu_pred[ctr_mask],self.data[self.score].values[ctr_mask])
+                msll = MSLL(mu_pred[ctr_mask],self.data[self.score].values[ctr_mask],sigma_pred[ctr_mask])
             
-            mu_pred = gamlss.predict(gamlss_data,what='mu')
-            sigma_pred = gamlss.predict(gamlss_data,what='sigma')
+            else:
+                X = gamlss_data[ctr_mask]
+                kf = KFold(n_splits=cv_folds, shuffle=True)
+                rmse = []
+                smse = []
+                msll = []
+                print(f'Starting {cv_folds} folds of CV...')
+                for i, (train_index, test_index) in enumerate(kf.split(X)):
+                    X_train, X_test = X.iloc[train_index], X.iloc[test_index]
+
+                    gamlss.fit(X_train)
+
+                    cv_mu_pred = gamlss.predict(X_test,what='mu')
+                    cv_sigma_pred = gamlss.predict(X_test,what='sigma')
+
+                    r = RMSE(cv_mu_pred,X_test[self.score].values)
+                    s = SMSE(cv_mu_pred,X_test[self.score].values)
+                    m = MSLL(cv_mu_pred,X_test[self.score].values,cv_sigma_pred)
+                    print(f'CV Fold {i}: RMSE={r:.3f} - SMSE={s:.3f} - MSLL={m:.3f}')
+                    rmse.append(r)
+                    smse.append(s)
+                    msll.append(m)
+                print('Done!')
+
+                rmse = np.mean(rmse)
+                smse = np.mean(smse)
+                msll = np.mean(msll)
+                print(f'Average: RMSE={rmse:.3f} - SMSE={smse:.3f} - MSLL={msll:.3f}')
+
+                gamlss.fit(gamlss_data[ctr_mask])
+                
+                mu_pred = gamlss.predict(gamlss_data,what='mu')
+                sigma_pred = gamlss.predict(gamlss_data,what='sigma')
 
             self.data['GAMLSS_pred'] = mu_pred
             self.data['GAMLSS_sigma'] = sigma_pred
             self.data['GAMLSS_residuals'] = self.data[self.score] - self.data['GAMLSS_pred']
             self.data['GAMLSS_z'] = self.data['GAMLSS_residuals']/self.data['GAMLSS_sigma']
 
-            self.RMSE_GAMLSS = RMSE(mu_pred[ctr_mask],self.data[self.score].values[ctr_mask])
-            self.SMSE_GAMLSS = SMSE(mu_pred[ctr_mask],self.data[self.score].values[ctr_mask])
-            self.MSLL_GAMLSS = MSLL(mu_pred[ctr_mask],self.data[self.score].values[ctr_mask],sigma_pred[ctr_mask])
+            self.RMSE_GAMLSS = rmse
+            self.SMSE_GAMLSS = smse
+            self.MSLL_GAMLSS = msll
 
     def _plot(self, ax,kind=None,gp_xaxis=None,gamlss_xaxis=None):
         """ Plot the data with the normative model overlaid.
