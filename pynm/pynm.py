@@ -773,9 +773,9 @@ class PyNM:
                 mu_pred = gamlss.predict(gamlss_data,what='mu')
                 sigma_pred = gamlss.predict(gamlss_data,what='sigma')
                 
-                rmse = RMSE(mu_pred[ctr_mask],self.data[self.score].values[ctr_mask])
-                smse = SMSE(mu_pred[ctr_mask],self.data[self.score].values[ctr_mask])
-                msll = MSLL(mu_pred[ctr_mask],self.data[self.score].values[ctr_mask],sigma_pred[ctr_mask])
+                rmse = RMSE(self.data[self.score].values[ctr_mask],mu_pred[ctr_mask])
+                smse = SMSE(self.data[self.score].values[ctr_mask],mu_pred[ctr_mask])
+                msll = MSLL(self.data[self.score].values[ctr_mask],mu_pred[ctr_mask],sigma_pred[ctr_mask])
             
             else:
                 X = gamlss_data[ctr_mask]
@@ -792,9 +792,9 @@ class PyNM:
                     cv_mu_pred = gamlss.predict(X_test,what='mu')
                     cv_sigma_pred = gamlss.predict(X_test,what='sigma')
 
-                    r = RMSE(cv_mu_pred,X_test[self.score].values)
-                    s = SMSE(cv_mu_pred,X_test[self.score].values)
-                    m = MSLL(cv_mu_pred,X_test[self.score].values,cv_sigma_pred)
+                    r = RMSE(X_test[self.score].values,cv_mu_pred)
+                    s = SMSE(X_test[self.score].values,cv_mu_pred)
+                    m = MSLL(X_test[self.score].values,cv_mu_pred,cv_sigma_pred)
                     print(f'CV Fold {i}: RMSE={r:.3f} - SMSE={s:.3f} - MSLL={m:.3f}')
                     rmse.append(r)
                     smse.append(s)
