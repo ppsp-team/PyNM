@@ -986,7 +986,7 @@ class PyNM:
             else:
                 sns.violinplot(x=confound, y='GAMLSS_residuals',
                             data=self.data, split=True, palette='Blues', hue=self.group,ax=ax)
-            ax.set_title(f"{kind} SMSE={np.round(self.SMSE_GAMLSS,3)}")
+            ax.set_title(f"{kind} SMSE={np.round(self.SMSE_GAMLSS,3)} - MSLL={np.round(self.MSLL_GAMLSS,3)}")
         if not isinstance(confound,str):
             ax.set_xticklabels([''])
     
@@ -1034,7 +1034,7 @@ class PyNM:
             else:
                 sns.scatterplot(x=confound, y='GAMLSS_residuals',
                                 data=self.data, hue=self.group,ax=ax)
-            ax.set_title(f"{kind} SMSE={np.round(self.SMSE_GAMLSS,3)}")
+            ax.set_title(f"{kind} SMSE={np.round(self.SMSE_GAMLSS,3)} - MSLL={np.round(self.MSLL_GAMLSS,3)}")
 
     def plot_res(self, kind=None, confound=None):
         """Plot the residuals of the normative model.
