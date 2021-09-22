@@ -191,7 +191,7 @@ Original papers with Gaussian Processes (GP):
 - Marquand et al. Molecular Psychiatry 2019 [doi:10.1038/s41380-019-0441-1](https://doi.org/10.1038/s41380-019-0441-1)
 
 For limitations of Gaussian Proccesses:
-- Xu et al. [https://www.biorxiv.org/content/10.1101/2021.05.11.443565v1.full](https://www.biorxiv.org/content/10.1101/2021.05.11.443565v1.full)
+- Xu et al. PLoS ONE 2021, [The pitfalls of using Gaussian Process Regression for normative modeling](https://doi.org/10.1371/journal.pone.0252108)
 
 Example of use of the LOESS approach:
 - Lefebvre et al. Front. Neurosci. 2018 [doi:10.3389/fnins.2018.00662](https://doi.org/10.3389/fnins.2018.00662)
