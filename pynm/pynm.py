@@ -852,6 +852,7 @@ class PyNM:
             ax.plot(tmp[self.conf], tmp['LOESS_pred'] + 1.96*tmp['LOESS_sigma'], '--k',label='95% CI')
             handles, labels = ax.get_legend_handles_labels()
             ax.legend(handles, labels)
+            ax.set_title(f"{kind} SMSE={self.SMSE_LOESS:.3f}")
         elif kind == 'Centiles':
             sns.scatterplot(data=self.data, x=self.conf, y=self.score,
                                 hue=self.group, style=self.group,ax=ax)
@@ -861,6 +862,7 @@ class PyNM:
             ax.plot(tmp[self.conf], tmp['Centiles_95'],'--k',label='95% CI')
             handles, labels = ax.get_legend_handles_labels()
             ax.legend(handles, labels)
+            ax.set_title(f"{kind} SMSE={self.SMSE_Centiles:.3f}")
         elif kind == 'GP':
             if gp_xaxis is None:
                 gp_xaxis = self.conf
@@ -877,6 +879,7 @@ class PyNM:
                 ax.scatter(tmp[gp_xaxis], tmp['GP_pred'] + 1.96*tmp['GP_sigma'], label='95% CI',color='black',s=0.2)
             handles, labels = ax.get_legend_handles_labels()
             ax.legend(handles, labels)
+            ax.set_title(f"{kind} SMSE={self.SMSE_GP:.3f} - MSLL={self.MSLL_GP:.3f}")
         elif kind == 'GAMLSS':
             if gamlss_xaxis is None:
                 gamlss_xaxis = self.conf
@@ -893,6 +896,7 @@ class PyNM:
                 ax.scatter(tmp[gamlss_xaxis], tmp['GAMLSS_pred'] + 1.96*tmp['GAMLSS_sigma'], label='95% CI',color='black',s=0.2)
             handles, labels = ax.get_legend_handles_labels()
             ax.legend(handles, labels)
+            ax.set_title(f"{kind} SMSE={self.SMSE_GAMLSS:.3f} - MSLL={self.MSLL_GAMLSS:.3f}")
         return ax
 
     def plot(self, kind=None,gp_xaxis=None,gamlss_xaxis=None):
@@ -925,12 +929,10 @@ class PyNM:
             fig, ax = plt.subplots(1,len(kind),figsize=(len(kind)*5,5))
             for i,k in enumerate(kind):
                 self._plot(ax[i],kind=k,gp_xaxis=gp_xaxis,gamlss_xaxis=gamlss_xaxis)
-                ax[i].set_title(k)
             plt.show()
         elif set(kind).issubset(set(['LOESS','Centiles','GP','GAMLSS'])) and len(kind)>0:
             fig, ax = plt.subplots(1,len(kind),figsize=(len(kind)*5,5))
             self._plot(ax,kind=kind[0],gp_xaxis=gp_xaxis,gamlss_xaxis=gamlss_xaxis)
-            ax.set_title(kind[0])
             plt.show()
         elif len(kind)==0:
             fig, ax = plt.subplots(1,1)
@@ -960,7 +962,7 @@ class PyNM:
             else:
                 sns.violinplot(x=confound, y='LOESS_residuals',
                             data=self.data, split=True, palette='Blues', hue=self.group,ax=ax)
-            ax.set_title(f"{kind} SMSE={np.round(self.SMSE_LOESS,3)}")
+            ax.set_title(f"{kind} SMSE={self.SMSE_LOESS:.3f}")
         if kind == 'Centiles':
             if z:
                 sns.violinplot(x=confound, y='Centiles_z',
@@ -968,7 +970,7 @@ class PyNM:
             else:
                 sns.violinplot(x=confound, y='Centiles_residuals',
                             data=self.data, split=True, palette='Blues', hue=self.group,ax=ax)
-            ax.set_title(f"{kind} SMSE={np.round(self.SMSE_Centiles,3)}")
+            ax.set_title(f"{kind} SMSE={self.SMSE_Centiles:.3f}")
         if kind == 'GP':
             if z:
                     sns.violinplot(x=confound, y='GP_z',
@@ -976,7 +978,7 @@ class PyNM:
             else:
                 sns.violinplot(x=confound, y='GP_residuals',
                             data=self.data, split=True, palette='Blues', hue=self.group,ax=ax)
-            ax.set_title(f"{kind} SMSE={np.round(self.SMSE_GP,3)} - MSLL={np.round(self.MSLL_GP,3)}")
+            ax.set_title(f"{kind} SMSE={self.SMSE_GP:.3f} - MSLL={self.MSLL_GP:.3f}")
         if kind == 'GAMLSS':
             if z:
                 sns.violinplot(x=confound, y='GAMLSS_z',
@@ -984,7 +986,7 @@ class PyNM:
             else:
                 sns.violinplot(x=confound, y='GAMLSS_residuals',
                             data=self.data, split=True, palette='Blues', hue=self.group,ax=ax)
-            ax.set_title(f"{kind} SMSE={np.round(self.SMSE_GAMLSS,3)} - MSLL={np.round(self.MSLL_GAMLSS,3)}")
+            ax.set_title(f"{kind} SMSE={self.SMSE_GAMLSS:.3f} - MSLL={self.MSLL_GAMLSS:.3f}")
         if not isinstance(confound,str):
             ax.set_xticklabels([''])
     
@@ -1008,7 +1010,7 @@ class PyNM:
             else:
                 sns.scatterplot(x=confound, y='LOESS_residuals',
                                 data=self.data, hue=self.group,ax=ax)
-            ax.set_title(f"{kind} SMSE={np.round(self.SMSE_LOESS,3)}")
+            ax.set_title(f"{kind} SMSE={self.SMSE_LOESS:.3f}")
         if kind == 'Centiles':
             if z:
                 sns.scatterplot(x=confound, y='Centiles_z',
@@ -1016,7 +1018,7 @@ class PyNM:
             else:
                 sns.scatterplot(x=confound, y='Centiles_residuals',
                                 data=self.data, hue=self.group,ax=ax)
-            ax.set_title(f"{kind} SMSE={np.round(self.SMSE_Centiles,3)}")
+            ax.set_title(f"{kind} SMSE={self.SMSE_Centiles:.3f}")
         if kind == 'GP':
             if z:
                 sns.scatterplot(x=confound, y='GP_z',
@@ -1024,7 +1026,7 @@ class PyNM:
             else:
                 sns.scatterplot(x=confound, y='GP_residuals',
                                 data=self.data, hue=self.group,ax=ax)
-            ax.set_title(f"{kind} SMSE={np.round(self.SMSE_GP,3)} - MSLL={np.round(self.MSLL_GP,3)}")
+            ax.set_title(f"{kind} SMSE={self.SMSE_GP:.3f} - MSLL={self.MSLL_GP:,3f}")
         if kind == 'GAMLSS':
             if z:
                 sns.scatterplot(x=confound, y='GAMLSS_z',
@@ -1032,7 +1034,7 @@ class PyNM:
             else:
                 sns.scatterplot(x=confound, y='GAMLSS_residuals',
                                 data=self.data, hue=self.group,ax=ax)
-            ax.set_title(f"{kind} SMSE={np.round(self.SMSE_GAMLSS,3)} - MSLL={np.round(self.MSLL_GAMLSS,3)}")
+            ax.set_title(f"{kind} SMSE={self.SMSE_GAMLSS:.3f} - MSLL={self.MSLL_GAMLSS:.3f}")
 
     def plot_res(self, kind=None, confound=None):
         """Plot the residuals of the normative model.
