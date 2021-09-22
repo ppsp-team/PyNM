@@ -953,8 +953,6 @@ class PyNM:
         confound: str or None
             Which confound to use as xaxis of plot, must be categorical or None.
         """
-        if confound is None:
-            confound = np.zeros(self.data.shape[0])
         if kind == 'LOESS':
             if z:
                 sns.violinplot(x=confound, y='LOESS_z',
