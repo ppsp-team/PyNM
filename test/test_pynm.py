@@ -286,6 +286,15 @@ class TestBasic:
         sigma = np.array([1,2,1,2,1])
         msll = 0.5*np.log(2*np.pi*np.array([1,4,1,4,1])) + np.array([1/2,1/8,0,1/8,9/2]) - np.array([4,1,0,1,4])/(2*np.sqrt(2))
         assert MSLL(y_true,y_pred,sigma) == np.mean(msll)
+    
+    def test_report(self):
+        data = generate_data(sample_size=4, n_sites=2, randseed=3)
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
+        m.centiles_normative_model()
+        m.loess_normative_model()
+        #m.gp_normative_model()
+        #m.gamlss_normative_model()
+        m.report()
 
 @patch("matplotlib.pyplot.show")
 class TestPlot:

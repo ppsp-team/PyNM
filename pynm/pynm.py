@@ -819,6 +819,33 @@ class PyNM:
             self.RMSE_GAMLSS = rmse
             self.SMSE_GAMLSS = smse
             self.MSLL_GAMLSS = msll
+    
+    def report(self):
+        """ Prints the values of each metric (SMSE, RMSE, MSLL) for the models that have been run.
+        """
+        print("------\nReport\n------")
+        models = []
+        for m in ['LOESS','Centiles','GP','GAMLSS']:
+            if '{}_pred'.format(m) in self.data.columns:
+                models.append(m)
+        if len(models)==0:
+            print('No models have been run.')
+            return
+        
+        print("========= SMSE - RMSE - MSLL")
+        for m in models:
+            k = 9 - len(m)
+            m_formatted = m + k*' '
+            smse = np.round(eval(f"self.SMSE_{m}"),2)
+            if np.isnan(smse):
+                smse = 'NaN '
+            rmse = np.round(eval(f"self.RMSE_{m}"),2)
+            if np.isnan(rmse):
+                rmse = 'NaN '
+            msll = 'N/A'
+            if (m == 'GP') or (m == 'GAMLSS'):
+                msll = np.round(eval(f"self.MSLL_{m}"),2)
+            print(f"{m_formatted} {smse}   {rmse}   {msll}")
 
     def _plot(self, ax,kind=None,gp_xaxis=None,gamlss_xaxis=None):
         """ Plot the data with the normative model overlaid.
