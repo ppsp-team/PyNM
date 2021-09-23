@@ -57,7 +57,7 @@ def SMSE(y_true,y_pred):
     float
         SMSE value for inputs.
     """
-    return (np.mean((y_true - y_pred)**2))**0.5/np.std(y_true) # normalized by variance?
+    return (np.mean((y_true - y_pred)**2))**0.5/np.std(y_true)
 
 def MSLL(y_true,y_pred,sigma):
     """Calculates Mean Standardized Log Loss (MSLL).
