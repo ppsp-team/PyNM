@@ -1053,7 +1053,7 @@ class PyNM:
             else:
                 sns.scatterplot(x=confound, y='GP_residuals',
                                 data=self.data, hue=self.group,ax=ax)
-            ax.set_title(f"{kind} SMSE={self.SMSE_GP:.3f} - MSLL={self.MSLL_GP:,3f}")
+            ax.set_title(f"{kind} SMSE={self.SMSE_GP:.3f} - MSLL={self.MSLL_GP:.3f}")
         if kind == 'GAMLSS':
             if z:
                 sns.scatterplot(x=confound, y='GAMLSS_z',
