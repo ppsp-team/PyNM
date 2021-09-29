@@ -102,7 +102,7 @@ class PyNM:
     """
 
     def __init__(self, data, score, group, confounds, 
-                train_sample='controls', bin_spacing=-1, bin_width=-1):
+                train_sample='controls', bin_spacing=-1, bin_width=-1, seed=None):
         """ Create a PyNM object.
 
         Parameters
@@ -125,6 +125,8 @@ class PyNM:
             Distance between bins for LOESS & centiles models.
         bin_width: float, default=-1
             Width of bins for LOESS & centiles models.
+        seed: int, default=None
+            Seed for random state generator, if None no seed is set.
         
         Raises
         ------
@@ -159,6 +161,9 @@ class PyNM:
         self.RMSE_GAMLSS = None
         self.SMSE_GAMLSS = None
         self.MSLL_GAMLSS = None
+
+        if seed is not None:
+            np.random.seed(seed)
 
         self._set_group_names()
         self._set_group()
