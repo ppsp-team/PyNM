@@ -31,9 +31,10 @@ def _cli_parser():
                         "distinguishes probands from controls. The column must be "
                         "encoded with str labels using 'PROB' for probands and 'CTR' for controls "
                         "or with int labels using 1 for probands and 0 for controls.")
-    parser.add_argument("--train_sample",default='controls',dest='train_sample',
-                        help="On what subset to train the model, can be 'controls', 'manual', "
-                            "or a value in (0,1]. Default value is 'controls'.")
+    parser.add_argument("--train_sample",default=1,dest='train_sample',
+                        help="Which method to use for a training sample, can be a float in (0,1] "
+                        "for a percentage of controls or 'manual' to be manually set using a column "
+                        "of the DataFrame labelled 'train_sample'.")
     parser.add_argument("--LOESS",dest='LOESS',action='store_true',
                         help="Flag to run LOESS model.")
     parser.add_argument("--centiles",dest='centiles',action='store_true',

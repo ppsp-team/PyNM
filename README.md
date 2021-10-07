@@ -79,9 +79,10 @@ optional arguments:
                         and 'CTR' for controls or with int labels using 1 for
                         probands and 0 for controls.
   --train_sample TRAIN_SAMPLE
-                        On what subset to train the model, can be 'controls',
-                        'manual', or a value in (0,1]. Default value is
-                        'controls'.
+                        Which method to use for a training sample, can be a
+                        float in (0,1] for a percentage of controls or
+                        'manual' to be manually set using a column of the
+                        DataFrame labelled 'train_sample'.
   --LOESS               Flag to run LOESS model.
   --centiles            Flag to run Centiles model.
   --bin_spacing BIN_SPACING
@@ -158,14 +159,12 @@ All the functions have the classical Python DocStrings that you can summon with 
 ### Training sample
 By default, the models are fit on all the controls in the dataset and prediction is then done on the entire dataset. The residuals (scores of the normative model) are then calculated as the difference between the actual value and predicted value for each subject. This paradigm is not meant for situations in which the residuals will then be used in a prediction setting, since any train/test split stratified by proband/control will have information from the training set leaked into the test data.
 
-In order to avoid contaminating the test set, in a prediction setting it is important to fit the normative model on a subset of the controls and then leave those out. This is implemented in PyNM with the `--train_sample` flag. It can be used in three ways:
+In order to avoid contaminating the test set, in a prediction setting it is important to fit the normative model on a subset of the controls and then leave those out. This is implemented in PyNM with the `--train_sample` flag. It can be used by providing:
  1. Number in (0,1]
-    - This is simplest usage that defines the sample size, PyNM will then select a random sample of the controls and use those as a training group. 
+    - This is simplest usage that defines the sample size, PyNM will then select a random sample of the controls and use those as a training group. To use all the controls use 1.
     - The subjects used in the sample are recorded in the column `'train_sample'` of the resulting PyNM.data object. Subjects used in the training sample are encoded as 1s, and the rest as 0s. 
- 3. `'manual'`
+ 2. `'manual'`
     - It is also possible to specify exactly which subjects to use as a training group by providing a column in the input data labeled `'train_sample'` encoded the same way.
- 5. `'controls'`
-    - This is the default setting that will fit the model on all the controls.
 
 ### Centiles and LOESS Models
 Both the Centiles and LOESS models are non parametric models based local approximations. They accept only a single dependent variable, passed using the `conf` option.

@@ -127,7 +127,7 @@ class TestBasic:
 
     def test_set_group_controls(self):
         data = generate_data(randseed=3, group='01')
-        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'],train_sample='controls')
+        m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'],train_sample=1)
         assert m.group == 'group'
     
     def test_set_group_33(self):

@@ -102,7 +102,7 @@ class PyNM:
     """
 
     def __init__(self, data, score, group, confounds, 
-                train_sample='controls', bin_spacing=-1, bin_width=-1, seed=None):
+                train_sample=1, bin_spacing=-1, bin_width=-1, seed=None):
         """ Create a PyNM object.
 
         Parameters
@@ -118,9 +118,9 @@ class PyNM:
             List of labels of columns from data with confounds. For GP model all confounds will be used,
             for LOESS and Centiles models only the first is used. For GAMLSS all confounds are used
             unless formulas are specified. Categorical values must be denoted by c(var) ('c' must be lower case).
-        train_sample: str or float, default='controls'
-            Which method to use for a training sample, can be 'controls' to use all the controls, 
-            'manual' to be manually set, or a float in (0,1] for a percentage of controls.
+        train_sample: str or float, default=1
+            Which method to use for a training sample, can be a float in (0,1] for a percentage of controls 
+            or 'manual' to be manually set using a column of the DataFrame labelled 'train_sample'.
         bin_spacing: int, default=-1
             Distance between bins for LOESS & centiles models.
         bin_width: float, default=-1
@@ -178,7 +178,7 @@ class PyNM:
         """
         ctr_idx = self.data[self.data[self.group] == self.CTR].index.tolist()
         n_ctr = len(ctr_idx)
-        n_ctr_train = max(int(train_size*n_ctr), 1)  #TODO: make this minimum 2?
+        n_ctr_train = max(int(train_size*n_ctr), 1)
 
         np.random.seed(1)
         ctr_idx_train = np.array(np.random.choice(ctr_idx, size=n_ctr_train, replace=False))
@@ -195,18 +195,18 @@ class PyNM:
         Raises
         ------
         ValueError
-            With train_sample='contols': Dataset has no controls for training sample.
+            With train_sample=1: Dataset has no controls for training sample.
         ValueError
             With train_sample='manual': Data has no column "train_sample". To manually specify a training sample, 
             data .csv must contain a column "train_sample" with included subjects marked with 1 and rest as 0.
         ValueError
             With train_sample='manual': Dataset has no subjects in specified training sample.
         ValueError
-            Value for train_sample not recognized. Must be either 'controls', 'manual', or a value in (0,1].
+            Value for train_sample not recognized. Must be either a value in (0,1] or 'manual'.
         ValueError
             With train_sample float: Numerical value for train_sample must be in the range (0,1].
         """
-        if self.train_sample == 'controls':
+        if self.train_sample == 1:
             print('Models will be fit on full set of controls.')
             if self.data[self.data[self.group] == self.CTR].shape[0] == 0:
                 raise ValueError('Dataset has no controls for training sample.')
