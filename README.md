@@ -159,9 +159,9 @@ All the functions have the classical Python DocStrings that you can summon with 
 ### Training sample
 By default, the models are fit on all the controls in the dataset and prediction is then done on the entire dataset. The residuals (scores of the normative model) are then calculated as the difference between the actual value and predicted value for each subject. This paradigm is not meant for situations in which the residuals will then be used in a prediction setting, since any train/test split stratified by proband/control will have information from the training set leaked into the test data.
 
-In order to avoid contaminating the test set, in a prediction setting it is important to fit the normative model on a subset of the controls and then leave those out. This is implemented in PyNM with the `--train_sample` flag. It can be used by providing:
- 1. Number in (0,1]
-    - This is simplest usage that defines the sample size, PyNM will then select a random sample of the controls and use those as a training group. To use all the controls use 1.
+In order to avoid contaminating the test set, in a prediction setting it is important to fit the normative model on a subset of the controls and then leave those out. This is implemented in PyNM with the `--train_sample` flag. It can be set to:
+ 1. A number in (0,1]
+    - This is simplest usage that defines the sample size, PyNM will then select a random sample of the controls and use those as a training group. The number is the proportion of controls to use, the default value is 1 to use the full set of controls.
     - The subjects used in the sample are recorded in the column `'train_sample'` of the resulting PyNM.data object. Subjects used in the training sample are encoded as 1s, and the rest as 0s. 
  2. `'manual'`
     - It is also possible to specify exactly which subjects to use as a training group by providing a column in the input data labeled `'train_sample'` encoded the same way.
