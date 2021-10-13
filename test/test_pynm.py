@@ -7,6 +7,7 @@ import pytest
 from pynm.util import *
 import matplotlib.pyplot as plt
 from unittest.mock import patch 
+from sklearn.model_selection import train_test_split
 
 def model(age, sex, offset):
     noise = np.random.normal(0, 0.1)
@@ -435,11 +436,10 @@ class TestApprox:
         data = generate_data(randseed=3)
         m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
         conf_mat = m._get_conf_mat()
-        ctr,prob = m._get_masks()
         score = m._get_score()
-        svgp = SVGP(conf_mat,score,ctr)
-        assert svgp.n_train == 5 
-        assert svgp.n_test == 6
+
+        X_train,X_test,y_train,y_test = train_test_split(conf_mat, score)
+        svgp = SVGP(X_train,X_test,y_train,y_test)
     
     def test_svgp_train(self):
         from pynm.models.approx import SVGP
@@ -447,9 +447,10 @@ class TestApprox:
         data = generate_data(randseed=3)
         m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
         conf_mat = m._get_conf_mat()
-        ctr,prob = m._get_masks()
         score = m._get_score()
-        svgp = SVGP(conf_mat,score,ctr)
+
+        X_train,X_test,y_train,y_test = train_test_split(conf_mat, score)
+        svgp = SVGP(X_train,X_test,y_train,y_test)
         svgp.train(num_epochs = 2)
 
         assert len(svgp.loss) == 2
@@ -460,13 +461,15 @@ class TestApprox:
         data = generate_data(randseed=3)
         m = pynm.PyNM(data,'score','group',['age','c(sex)','c(site)'])
         conf_mat = m._get_conf_mat()
-        ctr,prob = m._get_masks()
         score = m._get_score()
-        svgp = SVGP(conf_mat,score,ctr)
+
+        X_train,X_test,y_train,y_test = train_test_split(conf_mat, score)
+        svgp = SVGP(X_train,X_test,y_train,y_test)
         svgp.train(num_epochs = 2)
         means,sigmas = svgp.predict()
-        assert means.size(0) == 6
-        assert sigmas.size(0) == 6
+
+        assert means.size(0) == y_test.shape[0]
+        assert sigmas.size(0) == y_test.shape[0]
 
     def test_svgp_model(self):
         data = generate_data(sample_size=4, n_sites=2, randseed=3)
