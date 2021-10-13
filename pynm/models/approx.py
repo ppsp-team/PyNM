@@ -137,7 +137,8 @@ class SVGP:
 
         self.model = GPModel(inducing_points=self.inducing_points,nu=nu,length_scale=length_scale,length_scale_bounds=length_scale_bounds).double()
         #self.likelihood = gpytorch.likelihoods.GaussianLikelihood()
-        self.likelihood = FixedNoiseGaussianLikelihood(None, learn_additional_noise=True)
+        noise = torch.std(train_x)
+        self.likelihood = FixedNoiseGaussianLikelihood(noise=noise, learn_additional_noise=True)
 
         if torch.cuda.is_available():
             self.model = self.model.cuda()
