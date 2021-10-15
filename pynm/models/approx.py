@@ -8,7 +8,6 @@ from torch.utils.data import TensorDataset, DataLoader
 from gpytorch.models import ApproximateGP
 from gpytorch.variational import CholeskyVariationalDistribution
 from gpytorch.variational import VariationalStrategy
-from gpytorch.likelihoods import FixedNoiseGaussianLikelihood
 
 class GPModel(ApproximateGP):
     """ Class for GPyTorch model.
@@ -137,8 +136,6 @@ class SVGP:
 
         self.model = GPModel(inducing_points=self.inducing_points,nu=nu,length_scale=length_scale,length_scale_bounds=length_scale_bounds).double()
         self.likelihood = gpytorch.likelihoods.GaussianLikelihood()
-        #noise = torch.std(train_x)
-        #self.likelihood = FixedNoiseGaussianLikelihood(noise=noise, learn_additional_noise=True)
 
         if torch.cuda.is_available():
             self.model = self.model.cuda()
@@ -169,7 +166,7 @@ class SVGP:
             for x_batch, y_batch in minibatch_iter:
                 optimizer.zero_grad()
                 output = self.model(x_batch)
-                loss = -mll(output, y_batch, noise=torch.std(x_batch,dim=1))
+                loss = -mll(output, y_batch)
                 minibatch_iter.set_postfix(loss=loss.item())
                 loss.backward()
                 optimizer.step()
@@ -192,8 +189,7 @@ class SVGP:
         sigma = torch.tensor([0.])
         with torch.no_grad():
             for x_batch, y_batch in self.test_loader:
-                with gpytorch.settings.fast_pred_var(False):
-                    preds = self.model(x_batch)
+                preds = self.model(x_batch)
                 mean = torch.cat([mean, preds.mean.cpu()])
                 sigma = torch.cat([sigma, torch.sqrt(preds.variance.cpu())])
         mean = mean[1:]
