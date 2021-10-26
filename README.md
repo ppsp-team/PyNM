@@ -4,7 +4,7 @@
 
 Lightweight Python implementation of Normative Modelling with Gaussian Processes (exact & approximate), GAMLSS, LOESS & Centiles approaches.
 
-For a more advanced implementation, see the Python librairie [PCNtoolkit](https://github.com/amarquand/PCNtoolkit).
+For a more advanced implementation, see the Python library [PCNtoolkit](https://github.com/amarquand/PCNtoolkit).
 
 ## Installation
 
