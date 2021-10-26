@@ -136,6 +136,7 @@ class SVGP:
 
         self.model = GPModel(inducing_points=self.inducing_points,nu=nu,length_scale=length_scale,length_scale_bounds=length_scale_bounds).double()
         self.likelihood = gpytorch.likelihoods.GaussianLikelihood()
+        self.likelihood.initialize(noise=torch.std(train_x))
 
         if torch.cuda.is_available():
             self.model = self.model.cuda()
@@ -189,7 +190,7 @@ class SVGP:
         sigma = torch.tensor([0.])
         with torch.no_grad():
             for x_batch, y_batch in self.test_loader:
-                preds = self.model(x_batch)
+                preds = self.likelihood(self.model(x_batch)) # get likelihood variance + posterior GP variance
                 mean = torch.cat([mean, preds.mean.cpu()])
                 sigma = torch.cat([sigma, torch.sqrt(preds.variance.cpu())])
         mean = mean[1:]
