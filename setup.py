@@ -3,17 +3,17 @@ from setuptools import setup
 
 setup(
     name="pynm",
-    version="v0.1-alpha.1",
+    version="1.0.0b1",
     author="Annabelle HARVEY, Guillaume DUMAS",
     author_email="annabelle.harvey@umontreal.ca, guillaume.dumas@ppsp.team",
     description=("Python implementation of Normative Modelling", 
-                 "with Gaussian Processes, LOESS & Centiles approaches."),
+                 "with GAMLSS, Gaussian Processes, LOESS & Centiles approaches."),
     license="BSD",
     keywords="gaussian processes statistics modeling",
     url="https://github.com/ppsp-team/PyNM",
     packages=['pynm', 'test'],
     classifiers=[
-        "Development Status :: 3 - Alpha",
+        "Development Status :: 4 - Beta",
         "Topic :: Scientific/Engineering :: Bio-Informatics",
         "License :: OSI Approved :: BSD License",
     ],
