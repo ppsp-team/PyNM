@@ -24,8 +24,6 @@ $ pip install pynm
 ```
 **Installation with R**
 
-*More detailed installation instructions to come.*
-
 If you are using a GAMLSS.
 - Must first have R installed and packages:
      - gamlss
