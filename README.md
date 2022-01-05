@@ -1,6 +1,6 @@
 ![PyNM Logo](pynm_logo.png)
 
-[![PyPI version shields.io](https://img.shields.io/pypi/v/pynm.svg)](https://pypi.org/project/pynm/) <a href="https://travis-ci.org/ppsp-team/pynm"><img src="https://travis-ci.org/ppsp-team/pynm.svg?branch=master"></a> [![license](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
+[![PyPI version shields.io](https://img.shields.io/pypi/v/pynm.svg)](https://pypi.org/project/pynm/) <a href="https://travis-ci.org/ppsp-team/pynm"><img src="https://travis-ci.org/ppsp-team/pynm.svg?branch=master"></a> [![license](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause) <a href="https://zenodo.org/record/5823034#.YdX2kxNOlwg"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.5823034.svg"></a>
 
 Lightweight Python implementation of Normative Modelling with Gaussian Processes (exact & approximate), GAMLSS, LOESS & Centiles approaches.
 
