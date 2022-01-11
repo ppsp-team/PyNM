@@ -169,8 +169,6 @@ In order to avoid contaminating the test set, in a prediction setting it is impo
     - It is also possible to specify exactly which subjects to use as a training group by providing a column in the input data labeled `'train_sample'` encoded the same way.
 
 ### Models
-![Available Models](pynm_models.png)
-
 #### Centiles and LOESS Models
 Both the Centiles and LOESS models are non parametric models based local approximations. They accept only a single dependent variable, passed using the `conf` option.
 
@@ -187,6 +185,8 @@ The approximate model implements a Stochastic Variational Gaussian Process (SVGP
 
 #### GAMLSS
 Generalized Additive Models of Location Shape and Scale (GAMLSS) are a flexible modeling framework that can model heteroskedasticity, non-linear effects of variables, and hierarchical structure of the data. The implementation here is a python wrapper for the R package gamlss, formulas for each parameter must be specified using functions available in the package (see [documentation](https://cran.r-project.org/web/packages/gamlss/index.html)). For a full discussion of using GAMLSS for normative modeling see [this paper](https://doi.org/10.1101/2021.06.14.448106).
+
+![Available Models](pynm_models.png)
 
 ## References
 
