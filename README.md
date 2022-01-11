@@ -138,6 +138,9 @@ optional arguments:
 ```python
 from pynm.pynm import PyNM
 
+# Load data
+df = pd.read_csv('data.csv')
+
 # Initialize pynm w/ data and confounds
 m = PyNM(df,'score','group', confounds = ['age','c(sex)','c(site)'])
 
@@ -150,6 +153,7 @@ m.gamlss_normative_model()
 # Collect output
 data = m.data
 ```
+
 ## Documentation
 
 All the functions have the classical Python DocStrings that you can summon with ```help()```. You can also see the [tutorials](https://github.com/ppsp-team/PyNM/tree/master/tutorials) for documented examples.
@@ -164,21 +168,24 @@ In order to avoid contaminating the test set, in a prediction setting it is impo
  2. `'manual'`
     - It is also possible to specify exactly which subjects to use as a training group by providing a column in the input data labeled `'train_sample'` encoded the same way.
 
-### Centiles and LOESS Models
+### Models
+![Available Models](pynm_models.png)
+
+#### Centiles and LOESS Models
 Both the Centiles and LOESS models are non parametric models based local approximations. They accept only a single dependent variable, passed using the `conf` option.
 
-### Gaussian Process Model
+#### Gaussian Process Model
 Gaussian Process Regression (GPR), which underpins the Gaussian Process Model, can accept an arbitrary number of dependent variables passed using the `confounds` option. Note: in order for GPR to be effective, the data must be homoskedastic. For a full discussion see [this paper](https://www.biorxiv.org/content/10.1101/2021.05.11.443565v1.full).
 
 GPR is very intensive on both memory and time usage. In order to have a scaleable method, we've implemented both an exact model for smaller datasets and an approximate method, recommended for datasets over ~1000 subjects. The method can be specified using the `method` option, it defaults to `auto` in which the approxiamte model will be chosen for datasets over 1000.
 
-#### Exact Model
+##### Exact Model
 The exact model implements [scikit-learn](https://scikit-learn.org/stable/index.html)'s Gaussian Process Regressor. The kernel is composed of a constant kernel, a white noise kernel, and a Matern kernel. The Matern kernel has parameters `nu` and `length_scale` that can be specified. The parameter `nu` has special values at 1.5 and 2.5, using other values will significantly increase computation time. See [documentation](https://scikit-learn.org/stable/modules/gaussian_process.html) for an overview of both.
 
-#### Approximate Model
+##### Approximate Model
 The approximate model implements a Stochastic Variational Gaussian Process (SVGP) model using [GPytorch](https://gpytorch.ai/), with a kernel closely matching the one in the exact model. SVGP is a deep learning technique that needs to be trained on minibatches for a set number of epochs, this can be tuned with the parameters `batch_size` and `num_epoch`. The model speeds up computation by using a subset of the data as inducing points, this can be controlled with the parameter `n_inducing` that defines how many points to use. See [documentation](https://docs.gpytorch.ai/en/v1.1.1/examples/04_Variational_and_Approximate_GPs/SVGP_Regression_CUDA.html) for an overview.
 
-### GAMLSS
+#### GAMLSS
 Generalized Additive Models of Location Shape and Scale (GAMLSS) are a flexible modeling framework that can model heteroskedasticity, non-linear effects of variables, and hierarchical structure of the data. The implementation here is a python wrapper for the R package gamlss, formulas for each parameter must be specified using functions available in the package (see [documentation](https://cran.r-project.org/web/packages/gamlss/index.html)). For a full discussion of using GAMLSS for normative modeling see [this paper](https://doi.org/10.1101/2021.06.14.448106).
 
 ## References
