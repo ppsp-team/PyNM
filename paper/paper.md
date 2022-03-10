@@ -36,12 +36,12 @@ The majority of studies in neuroimaging and psychiatry are focussed on case-cont
 Normative Modeling is an emerging alternative to case-control analyses that seeks to parse heterogeneity by looking at how individuals deviate from the normal trajectory. Analogous to normative growth charts, normative models map the mean and variance of a trait for a given population against a set of explanatory variables (usually including age). Statistical inferences at the level of the individual participant can then be obtained with respect to the normative range @marquand:2019. This framework can detect patterns of abnormality that might not be consistent across the population and recasts disease as an extreme of the normal range.
 
 PyNM is a lightweight python implementation of Normative Modeling making it approachable and easy to adopt. The package provides:
-  - Python API and a command-line interface for wide accessibility
-  - Automatic dataset splitting and cross-validation
-  - Five models from various back-ends in a unified interface that cover a broad range of common use cases
-  - Solutions for very large datasets and heteroskedastic data
-  - Integrated plotting and evaluation functions to quickly check the validity of the model fit and results
-  - Comprehensive and interactive tutorials
+- Python API and a command-line interface for wide accessibility
+- Automatic dataset splitting and cross-validation
+- Five models from various back-ends in a unified interface that cover a broad range of common use cases
+- Solutions for very large datasets and heteroskedastic data
+- Integrated plotting and evaluation functions to quickly check the validity of the model fit and results
+- Comprehensive and interactive tutorials
 
 
 # Statement of need
@@ -55,9 +55,9 @@ To the author’s knowledge, PCNtoolkit @pcntoolkit is the only other available 
 PyNM is intended to take users through their first steps in Normative Modeling to using advanced models on complex datasets. Crucially, it manages the dataset and has interactive tutorials – making it quick for new users to try the method either on their own data or on provided simulated data. The tutorials motivate the use of each model and highlight their limitations to help clarify which model is appropriate for what data, and built in plotting and evaluation functions \autoref{fig:Figure 1} make it simple to check the validity of the model output. The package includes five models from various backends in a unified interface, including a wrapper for GAMLSS @rigby:2005 from R that is otherwise not yet available in python, and the selected models cover many settings including big data and heteroskedasticity.
 
 Earlier versions of PyNM code were used in the following publications:
-  - @lefebvre:2018
-  - @maruani:2019
-  - @bethlehem:2020
+- @lefebvre:2018
+- @maruani:2019
+- @bethlehem:2020
 
 # Usage Example
 ```
