@@ -13,10 +13,10 @@ tags:
 authors:
   - name: Harvey, Annabelle
     orcid: 0000-0002-9940-8799
-    affiliation: [1,2]
+    affiliation: "1, 2"
   - name: Dumas, Guillaume
     orcid: 0000-0002-2253-1844
-    affiliation: [1,3]
+    affiliation: "1, 3"
 affiliations:
  - name: Centre de Recherche du CHU Sainte-Justine, Université de Montréal, QC, Canada
    index: 1
@@ -90,6 +90,6 @@ data = m.data
 
 The development of this code has benefited from useful discussions with Andre Marquand, Thomas Wolfers, Eva Loth, Jumana Amad, Richard Bethelem, and Michael Lombardo.
 
-Fundings: GD is supported by IVADO, FRQS, CFI, MITACS, and Compute Canada.
+Fundings: This work is supported by IVADO, FRQS, CFI, MITACS, and Compute Canada.
 
 # References

@@ -2,7 +2,19 @@
 
 [![PyPI version shields.io](https://img.shields.io/pypi/v/pynm.svg)](https://pypi.org/project/pynm/) <a href="https://travis-ci.org/ppsp-team/pynm"><img src="https://travis-ci.org/ppsp-team/pynm.svg?branch=master"></a> [![license](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause) <a href="https://zenodo.org/record/5823034#.YdX2kxNOlwg"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.5823034.svg"></a>
 
-Lightweight Python implementation of Normative Modelling with Gaussian Processes (exact & approximate), GAMLSS, LOESS & Centiles approaches.
+PyNM is a lightweight python implementation of Normative Modeling making it approachable and easy to adopt. The package provides:
+
+- Python API and a command-line interface for wide accessibility
+- Automatic dataset splitting and cross-validation
+- Five models from various back-ends in a unified interface that cover a broad range of common use cases
+   - Centiles
+   - LOESS
+   - Gaussian Process (GP)
+   - Stochastic Variational Gaussian Process (SVGP)
+   - Generalized Additive Models of Location Shape and Scale (GAMLSS)
+- Solutions for very large datasets and heteroskedastic data
+- Integrated plotting and evaluation functions to quickly check the validity of the model fit and results
+- Comprehensive and interactive tutorials
 
 For a more advanced implementation, see the Python library [PCNtoolkit](https://github.com/amarquand/PCNtoolkit).
 
@@ -222,4 +234,4 @@ Thank you for considering contributing to our project! Before getting involved, 
 
 ## Support
 
-This work is supported by [Compute Canada](https://computecanada.ca), [IVADO](https://ivado.ca/), and [FRQS](http://www.frqs.gouv.qc.ca/en/).
+This work is supported by [IVADO](https://ivado.ca/), [FRQS](http://www.frqs.gouv.qc.ca/en/), [CFI](https://www.innovation.ca/), [MITACS](https://www.mitacs.ca/en), and [Compute Canada](https://computecanada.ca).
