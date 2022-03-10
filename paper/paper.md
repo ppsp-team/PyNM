@@ -1,5 +1,5 @@
 ---
-title: 'PyNM: a Lightweight Python implementation of Normative Modeling.'
+title: 'PyNM: a Lightweight Python implementation of Normative Modeling'
 tags:
   - Python
   - Normative Modeling
@@ -13,10 +13,10 @@ tags:
 authors:
   - name: Harvey, Annabelle
     orcid: 0000-0002-9940-8799
-    affiliation: 1, 2
+    affiliation: [1,2]
   - name: Dumas, Guillaume
     orcid: 0000-0002-2253-1844
-    affiliation: 1, 3
+    affiliation: [1,3]
 affiliations:
  - name: Centre de Recherche du CHU Sainte-Justine, Université de Montréal, QC, Canada
    index: 1
@@ -53,7 +53,7 @@ In principle, any model that estimates both the mean and variance of the predict
 
 To the author’s knowledge, PCNtoolkit [@pcntoolkit] is the only other available package for Normative Modeling. It implements methods that have been applied in a range of psychiatry and neuroimaging studies including [@kia:2020] and [@fraza:2021], and is accompanied by thorough tutorials and a framework for Normative Modeling in computational psychiatry [@rutherford:2021]. While it includes features that make it an obvious choice for advanced users in many cases, is not as approachable to beginners and does not implement several key models.
 
-PyNM is intended to take users through their first steps in Normative Modeling to using advanced models on complex datasets. Crucially, it manages the dataset and has interactive tutorials – making it quick for new users to try the method either on their own data or on provided simulated data. The tutorials motivate the use of each model and highlight their limitations to help clarify which model is appropriate for what data, and built in plotting and evaluation functions \autoref{fig:Figure 1} make it simple to check the validity of the model output. The package includes five models from various backends in a unified interface, including a wrapper for GAMLSS [@rigby:2005] from R that is otherwise not yet available in python, and the selected models cover many settings including big data and heteroskedasticity.
+PyNM is intended to take users through their first steps in Normative Modeling to using advanced models on complex datasets. Crucially, it manages the dataset and has interactive tutorials – making it quick for new users to try the method either on their own data or on provided simulated data. The tutorials motivate the use of each model and highlight their limitations to help clarify which model is appropriate for what data, and built in plotting and evaluation functions (\autoref{fig:Figure 1}) make it simple to check the validity of the model output. The package includes five models from various backends in a unified interface, including a wrapper for GAMLSS [@rigby:2005] from R that is otherwise not yet available in python, and the selected models cover many settings including big data and heteroskedasticity.
 
 Earlier versions of PyNM code were used in the following publications:
 
