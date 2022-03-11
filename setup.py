@@ -8,6 +8,7 @@ setup(
     author_email="annabelle.harvey@umontreal.ca, guillaume.dumas@ppsp.team",
     description=("Python implementation of Normative Modelling", 
                  "with GAMLSS, Gaussian Processes, LOESS & Centiles approaches."),
+    long_description_content_type="text/x-rst",
     license="BSD",
     keywords="gaussian processes statistics modeling",
     url="https://github.com/ppsp-team/PyNM",
