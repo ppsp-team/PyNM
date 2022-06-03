@@ -3,7 +3,7 @@ from setuptools import setup
 
 setup(
     name="pynm",
-    version="1.0.0b1",
+    version="1.0.0b3",
     author="Annabelle HARVEY, Guillaume DUMAS",
     author_email="annabelle.harvey@umontreal.ca, guillaume.dumas@ppsp.team",
     description=("Python implementation of Normative Modelling", 
