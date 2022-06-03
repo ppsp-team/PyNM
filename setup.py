@@ -3,7 +3,7 @@ from setuptools import setup
 
 setup(
     name="pynm",
-    version="1.0.0b3",
+    version="1.0.0b7",
     author="Annabelle HARVEY, Guillaume DUMAS",
     author_email="annabelle.harvey@umontreal.ca, guillaume.dumas@ppsp.team",
     description=("Python implementation of Normative Modelling", 
@@ -12,7 +12,7 @@ setup(
     license="BSD",
     keywords="gaussian processes statistics modeling",
     url="https://github.com/ppsp-team/PyNM",
-    packages=['pynm', 'test'],
+    packages=['pynm', 'test', 'pynm/models'],
     classifiers=[
         "Development Status :: 4 - Beta",
         "Topic :: Scientific/Engineering :: Bio-Informatics",
@@ -30,7 +30,7 @@ setup(
         'pandas >= 1.1.5',
         'rpy2 == 3.1.0',
         'scikit_learn == 0.24.1',
-        'scipy == 1.5.3',
+        'scipy == 1.8.1',
         'seaborn == 0.11.1',
         'statsmodels >= 0.13.2',
         'torch == 1.8.0',
