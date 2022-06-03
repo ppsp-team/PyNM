@@ -24,13 +24,16 @@ setup(
         ],
     },
    install_requires=[
-        'matplotlib >= 3.3.4',
-        'numpy >= 1.18.5',
+        'gpytorch == 1.4.0',
+        'matplotlib == 3.3.4',
+        'numpy == 1.21.0',
         'pandas >= 1.1.5',
-        'scikit_learn >= 0.24.1',
-        'scipy >= 1.5.3',
-        'seaborn >= 0.11.1',
-        'statsmodels >= 0.12.2',
+        'rpy2 == 3.1.0',
+        'scikit_learn == 0.24.1',
+        'scipy == 1.5.3',
+        'seaborn == 0.11.1',
+        'statsmodels >= 0.13.2',
+        'torch == 1.8.0',
         'tqdm == 4.59.0'
    ],
 )
