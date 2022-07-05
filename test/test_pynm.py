@@ -285,8 +285,13 @@ class TestBasic:
         y_true = np.array([1,2,3,4,5])
         y_pred = np.array([0,1,3,5,2])
         sigma = np.array([1,2,1,2,1])
-        msll = 0.5*np.log(2*np.pi*np.array([1,4,1,4,1])) + np.array([1/2,1/8,0,1/8,9/2]) - np.array([4,1,0,1,4])/(2*np.sqrt(2))
-        assert MSLL(y_true,y_pred,sigma) == np.mean(msll)
+        y_train_mean = 2
+        y_train_sigma = 1
+
+        term1 = 0.5*np.log(2*np.pi*np.array([1,4,1,4,1])) + np.array([1/2,1/8,0,1/8,9/2])
+        term2 = 0.5*np.log(2*np.pi) + np.array([1/2,0,1/2,2,4.5])
+
+        assert MSLL(y_true,y_pred,sigma,y_train_mean,y_train_sigma) == np.mean(term1 - term2)
     
     def test_report(self):
         data = generate_data(sample_size=4, n_sites=2, randseed=3)

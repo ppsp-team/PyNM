@@ -570,9 +570,13 @@ class PyNM:
                 y_pred, sigma = gp.predict(conf_mat, return_std=True)
                 y_true = self.data[self.score].to_numpy().reshape(-1,1)
 
+                # For MSLL
+                y_train_mean = np.mean(y_true[ctr_mask])
+                y_train_sigma = np.std(y_true[ctr_mask])
+
                 rmse = RMSE(y_true[ctr_mask],y_pred[ctr_mask])
                 smse = SMSE(y_true[ctr_mask],y_pred[ctr_mask])
-                msll = MSLL(y_true[ctr_mask],y_pred[ctr_mask],sigma[ctr_mask])
+                msll = MSLL(y_true[ctr_mask],y_pred[ctr_mask],sigma[ctr_mask],y_train_mean,y_train_sigma)
             else:
                 kf = KFold(n_splits=cv_folds, shuffle=True)
                 rmse = []
@@ -585,9 +589,13 @@ class PyNM:
                     gp.fit(X_train, y_train)
                     y_pred, sigma = gp.predict(X_test, return_std=True)
 
+                    # For MSLL
+                    y_train_mean = np.mean(y_train)
+                    y_train_sigma = np.std(y_train)
+
                     r = RMSE(y_test,y_pred)
                     s = SMSE(y_test,y_pred)
-                    m = MSLL(y_test,y_pred,sigma)
+                    m = MSLL(y_test,y_pred,sigma,y_train_mean,y_train_sigma)
                     print(f'CV Fold {i}: RMSE={r:.3f} - SMSE={s:.3f} - MSLL={m:.3f}')
                     rmse.append(r)
                     smse.append(s)
@@ -668,9 +676,13 @@ class PyNM:
                 y_true = score
                 residuals = (y_true - y_pred).astype(float)
 
+                # For MSLL
+                y_train_mean = np.mean(y_true[ctr_mask])
+                y_train_sigma = np.std(y_true[ctr_mask])
+
                 rmse = RMSE(y_true[ctr_mask],y_pred[ctr_mask])
                 smse = SMSE(y_true[ctr_mask],y_pred[ctr_mask])
-                msll = MSLL(y_true[ctr_mask],y_pred[ctr_mask],sigma.numpy()[ctr_mask])
+                msll = MSLL(y_true[ctr_mask],y_pred[ctr_mask],sigma.numpy()[ctr_mask],y_train_mean,y_train_sigma)
 
             else:
                 X = conf_mat[ctr_mask]
@@ -685,6 +697,10 @@ class PyNM:
                     X_train, X_test = X[train_index], X[test_index]
                     y_train, y_test = y[train_index], y[test_index]
 
+                    # For MSLL
+                    y_train_mean = np.mean(y_train)
+                    y_train_sigma = np.std(y_train)
+
                     cv_svgp = SVGP(X_train,X_test,y_train,y_test,n_inducing=n_inducing,batch_size=batch_size,nu=nu,
                             length_scale=length_scale,length_scale_bounds=length_scale_bounds)
                 
@@ -696,7 +712,7 @@ class PyNM:
 
                     r = RMSE(y_test,cv_y_pred)
                     s = SMSE(y_test,cv_y_pred)
-                    m = MSLL(y_test,cv_y_pred,cv_sigma.numpy())
+                    m = MSLL(y_test,cv_y_pred,cv_sigma.numpy(),y_train_mean,y_train_sigma)
 
                     print(f'CV Fold {i}: RMSE={r:.3f} - SMSE={s:.3f} - MSLL={m:.3f}')
                     rmse.append(r)
@@ -777,10 +793,15 @@ class PyNM:
                 
                 mu_pred = gamlss.predict(gamlss_data,what='mu')
                 sigma_pred = gamlss.predict(gamlss_data,what='sigma')
+
+                # For MSLL
+                y_train_mean = np.mean(self.data[self.score].values[ctr_mask])
+                y_train_sigma = np.std(self.data[self.score].values[ctr_mask])
                 
                 rmse = RMSE(self.data[self.score].values[ctr_mask],mu_pred[ctr_mask])
                 smse = SMSE(self.data[self.score].values[ctr_mask],mu_pred[ctr_mask])
-                msll = MSLL(self.data[self.score].values[ctr_mask],mu_pred[ctr_mask],sigma_pred[ctr_mask])
+                msll = MSLL(self.data[self.score].values[ctr_mask],mu_pred[ctr_mask],sigma_pred[ctr_mask],
+                            y_train_mean, y_train_sigma)
             
             else:
                 X = gamlss_data[ctr_mask]
@@ -792,6 +813,10 @@ class PyNM:
                 for i, (train_index, test_index) in enumerate(kf.split(X)):
                     X_train, X_test = X.iloc[train_index], X.iloc[test_index]
 
+                    # For MSLL
+                    y_train_mean = np.mean(self.data[self.score].values[train_index])
+                    y_train_sigma = np.std(self.data[self.score].values[train_index])
+
                     gamlss.fit(X_train)
 
                     cv_mu_pred = gamlss.predict(X_test,what='mu')
@@ -799,7 +824,7 @@ class PyNM:
 
                     r = RMSE(X_test[self.score].values,cv_mu_pred)
                     s = SMSE(X_test[self.score].values,cv_mu_pred)
-                    m = MSLL(X_test[self.score].values,cv_mu_pred,cv_sigma_pred)
+                    m = MSLL(X_test[self.score].values,cv_mu_pred,cv_sigma_pred,y_train_mean,y_train_sigma)
                     print(f'CV Fold {i}: RMSE={r:.3f} - SMSE={s:.3f} - MSLL={m:.3f}')
                     rmse.append(r)
                     smse.append(s)
