@@ -1,4 +1,4 @@
-name: python 3.9
+name: python 3.7
 
 channels:
   - conda-forge
