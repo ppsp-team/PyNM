@@ -24,16 +24,17 @@ setup(
         ],
     },
    install_requires=[
-        'matplotlib',
-        'seaborn',
-        'tqdm',
+        'gpytorch >= 1.4.0',
+        'matplotlib >= 3.3.4',
         'numpy >= 1.21.0',
         'pandas >= 1.1.5',
+        'pytest >= 6.2.3'
+        'rpy2 >= 3.1.0',
         'scikit_learn >= 0.24.1',
         'scipy >= 1.5.3',
+        'seaborn >= 0.11.1',
         'statsmodels >= 0.13.2',
-        'rpy2 >= 3.1.0',
         'torch >= 1.8.0',
-        'gpytorch >= 1.4.0',
+        'tqdm >= 4.59.0',
    ],
 )
