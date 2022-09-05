@@ -219,6 +219,14 @@ For GAMLSS see:
 - Dinga et al. [https://doi.org/10.1101/2021.06.14.448106](https://doi.org/10.1101/2021.06.14.448106)
 - R documentation [https://cran.r-project.org/web/packages/gamlss/index.html](https://cran.r-project.org/web/packages/gamlss/index.html)
 
+## How to run tests
+
+To test the code locally, first make sure R and the required pacakes are installed then follow the instructions above under **Installation: Bleeding-edge Installation**. Finally, run:
+
+```bash
+$ pytest test/test_pynm.py
+```
+
 ## How to report errors
 
 If you spot any bugs :beetle:? Check out the [open issues](https://github.com/ppsp-team/PyNM/issues) to see if we're already working on it. If not, open up a new issue and we will check it out when we can!
