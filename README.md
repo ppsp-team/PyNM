@@ -20,20 +20,14 @@ For a more advanced implementation, see the Python library [PCNtoolkit](https://
 
 ## Installation
 
-**Minimal Installation**
+**Minimal Installation (without R)**
 
-If you have relatively small dataset, or are only using the exact GP, LOESS and/or Centiles models.
+If you aren't using the GAMLSS model/don't need to install R.
 
 ```bash
 $ pip install pynm
 ```
-**Installation with PyTorch**
 
-If you have a large dataset, or are using the approximate GP model.
-```bash
-$ pip install -r requirements.txt
-$ pip install pynm
-```
 **Installation with R**
 
 If you are using a GAMLSS.
@@ -41,8 +35,9 @@ If you are using a GAMLSS.
      - gamlss
      - gamlss.dist
      - gamlss.data
+     
+Instruction for installing R can be found at [r-project](https://www.r-project.org/). Once R and the `gamlss` packages are installed, install pynm:
 ```bash
-$ pip install -r requirements.txt
 $ pip install pynm
 ```
 **Bleeding-edge Installation**
