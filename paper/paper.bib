@@ -196,7 +196,58 @@
     abstract = {Normative modelling is becoming more popular in neuroimaging due to its ability to make predictions of deviation from a normal trajectory at the level of individual participants. It allows the user to model the distribution of several neuroimaging modalities, giving an estimation for the mean and centiles of variation. With the increase in the availability of big data in neuroimaging, there is a need to scale normative modelling to big data sets. However, the scaling of normative models has come with several challenges. So far, most normative modelling approaches used Gaussian process regression, and although suitable for smaller datasets (up to a few thousand participants) it does not scale well to the large cohorts currently available and being acquired. Furthermore, most neuroimaging modelling methods that are available assume the predictive distribution to be Gaussian in shape. However, deviations from Gaussianity can be frequently found, which may lead to incorrect inferences, particularly in the outer centiles of the distribution. In normative modelling, we use the centiles to give an estimation of the deviation of a particular participant from the ‘normal’ trend. Therefore, especially in normative modelling, the correct estimation of the outer centiles is of utmost importance, which is also where data are sparsest. Here, we present a novel framework based on Bayesian linear regression with likelihood warping that allows us to address these problems, that is, to correctly model non-Gaussian predictive distributions and scale normative modelling elegantly to big data cohorts. In addition, this method provides likelihood-based statistics, which are useful for model selection. To evaluate this framework, we use a range of neuroimaging-derived measures from the UK Biobank study, including image-derived phenotypes (IDPs) and whole-brain voxel-wise measures derived from diffusion tensor imaging. We show good computational scaling and improved accuracy of the warped BLR for certain IDPs and voxels if there was a deviation from normality of these parameters in their residuals. The present results indicate the advantage of a warped BLR in terms of; computational scalability and the flexibility to incorporate non-linearity and non-Gaussianity of the data, giving a wider range of neuroimaging datasets that can be correctly modelled.}
     }
 
-@Article{rutherford:2022,
+@Article{rutherford:2022a,
+    article_type = {journal},
+    title = {Charting brain growth and aging at high spatial precision},
+    author = {Rutherford, Saige
+    and Fraza, Charlotte
+    and Dinga, Richard
+    and Kia, Seyed Mostafa
+    and Wolfers, Thomas
+    and Zabihi, Mariam
+    and Berthet, Pierre
+    and Worker, Amanda
+    and Verdi, Serena
+    and Andrews, Derek
+    and Han, Laura KM
+    and Bayer, Johanna MM
+    and Dazzan, Paola
+    and McGuire, Phillip
+    and Mocking, Roel T
+    and Schene, Aart
+    and Sripada, Chandra
+    and Tso, Ivy F
+    and Duval, Elizabeth R
+    and Chang, Soo-Eun
+    and Penninx, Brenda WJH
+    and Heitzeg, Mary M
+    and Burt, S Alexandra
+    and Hyde, Luke W
+    and Amaral, David
+    and Wu Nordahl, Christine
+    and Andreasssen, Ole A
+    and Westlye, Lars T
+    and Zahn, Roland
+    and Ruhe, Henricus G
+    and Beckmann, Christian
+    and Marquand, Andre F},
+    editor = {Baker, Chris I and Taschler, Bernd and Esteban, Oscar and Constable, Todd},
+    volume = 11,
+    year = 2022,
+    month = {feb},
+    pub_date = {2022-02-01},
+    pages = {e72904},
+    citation = {eLife 2022;11:e72904},
+    doi = {10.7554/eLife.72904},
+    url = {https://doi.org/10.7554/eLife.72904},
+    abstract = {Defining reference models for population variation, and the ability to study individual deviations is essential for understanding inter-individual variability and its relation to the onset and progression of medical conditions. In this work, we assembled a reference cohort of neuroimaging data from 82 sites (N=58,836; ages 2–100) and used normative modeling to characterize lifespan trajectories of cortical thickness and subcortical volume. Models are validated against a manually quality checked subset (N=24,354) and we provide an interface for transferring to new data sources. We showcase the clinical value by applying the models to a transdiagnostic psychiatric sample (N=1985), showing they can be used to quantify variability underlying multiple disorders whilst also refining case-control inferences. These models will be augmented with additional samples and imaging modalities as they become available. This provides a common reference platform to bind results from different studies and ultimately paves the way for personalized clinical decision-making.},
+    keywords = {normative model, lifespan, growth chart, brain chart, big data, individual prediction},
+    journal = {eLife},
+    issn = {2050-084X},
+    publisher = {eLife Sciences Publications, Ltd},
+    }
+
+@Article{rutherford:2022b,
     author={Rutherford, Saige
     and Kia, Seyed Mostafa
     and Wolfers, Thomas
