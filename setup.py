@@ -28,7 +28,6 @@ setup(
         'matplotlib',
         'numpy',
         'pandas >= 1.1.5',
-        'pytest',
         'rpy2 >= 3.1.0',
         'scikit_learn >= 0.24.1',
         'scipy >= 1.5.3',
