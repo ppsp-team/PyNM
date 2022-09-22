@@ -221,9 +221,10 @@ For GAMLSS see:
 
 ## How to run tests
 
-To test the code locally, first make sure R and the required pacakes are installed then follow the instructions above under **Installation: Bleeding-edge Installation**. Finally, run:
+To test the code locally, first make sure R and the required packages are installed then follow the instructions above under **Installation: Bleeding-edge Installation**. Finally, run:
 
 ```bash
+$ pip install -r requirements.txt
 $ pytest test/test_pynm.py
 ```
 
