@@ -45,7 +45,7 @@ $ pip install pynm
 If you want to be up to date with the most recent changes to PyNM (not necessarily stable). For the options above replace `pip install pynm` with:
 ```bash
 $ git clone https://github.com/ppsp-team/PyNM.git
-$ cd PyNM
+$ cd pynm
 $ pip install .
 ```
 
