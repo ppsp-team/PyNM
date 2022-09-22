@@ -39,7 +39,7 @@ def loess_fit(train_data,bins,bin_width):
         if (~np.isnan(scores)).sum() > 2:
             mod = sm.WLS(scores, sm.tools.add_constant(adj_conf, 
                                                         has_constant='add'),
-                            missing='drop', weight=bin_mask.flatten()[idx],
+                            missing='drop', weights=bin_mask.flatten()[idx],
                             hasconst=True).fit()
             zm[i] = mod.params[0]  # mean
 
