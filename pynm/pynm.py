@@ -613,7 +613,7 @@ class PyNM:
 
             self.data['GP_pred'] = y_pred
             self.data['GP_sigma'] = sigma
-            self.data['GP_residuals'] = y_true - y_pred
+            self.data['GP_residuals'] = np.squeeze(y_true) - y_pred
             self.data['GP_z'] = self.data['GP_residuals'] / self.data['GP_sigma']
 
             self.RMSE_GP = rmse
