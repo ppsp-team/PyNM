@@ -4,6 +4,7 @@ channels:
   - conda-forge
 
 dependencies:
+  - python=3.9
   - r-base=4.2
   - r-tidyverse
   - r-gamlss
