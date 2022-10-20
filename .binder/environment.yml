@@ -6,5 +6,8 @@ channels:
 dependencies:
   - r-base=4.2
   - r-tidyverse
+  - r-gamlss
+  - r-gamlss.dist
+  - r-gamlss.data
   - pip:
     - pynm
