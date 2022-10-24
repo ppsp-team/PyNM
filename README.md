@@ -21,6 +21,7 @@ The tutorials can be accessed without any local installation via binder: [![Bind
 For a more advanced implementation, see the Python library [PCNtoolkit](https://github.com/amarquand/PCNtoolkit).
 
 ## Installation
+**Note**: functional installation requires python 3.9
 
 **Minimal Installation (without R)**
 
