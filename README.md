@@ -16,9 +16,12 @@ PyNM is a lightweight python implementation of Normative Modeling making it appr
 - Integrated plotting and evaluation functions to quickly check the validity of the model fit and results
 - Comprehensive and interactive tutorials
 
+The tutorials can be accessed without any local installation via binder: [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/ppsp-team/PyNM/HEAD)
+
 For a more advanced implementation, see the Python library [PCNtoolkit](https://github.com/amarquand/PCNtoolkit).
 
 ## Installation
+**Note**: functional installation requires python 3.9
 
 **Minimal Installation (without R)**
 
