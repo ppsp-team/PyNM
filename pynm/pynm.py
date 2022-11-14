@@ -567,7 +567,7 @@ class PyNM:
             if cv_folds == 1:
                 gp.fit(X, y)
                 y_pred, sigma = gp.predict(conf_mat, return_std=True)
-                y_true = self.data[self.score].to_numpy().reshape(-1,1)
+                y_true = self.data[self.score].to_numpy()
 
                 # For MSLL
                 y_train_mean = np.mean(y_true[ctr_mask])
@@ -594,7 +594,7 @@ class PyNM:
 
                     r = RMSE(y_test,y_pred)
                     s = SMSE(y_test,y_pred)
-                    m = MSLL(y_test,y_pred,sigma,y_train_mean,y_train_sigma)
+                    m = MSLL(y_test.squeeze(),y_pred.squeeze(),sigma.squeeze(),y_train_mean,y_train_sigma)
                     print(f'CV Fold {i}: RMSE={r:.3f} - SMSE={s:.3f} - MSLL={m:.3f}')
                     rmse.append(r)
                     smse.append(s)
