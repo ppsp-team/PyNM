@@ -64,11 +64,11 @@ def MSLL(y_true,y_pred,sigma,y_train_mean,y_train_sigma):
 
     Parameters
     ----------
-    y_true: array
+    y_true: (n,) array
         True values for response variable.
-    y_pred: array
+    y_pred: (n,) array
         Predicted values for response variable
-    sigma: array
+    sigma: (n,) array
         Standard deviation of predictive distribution.
     y_train_mean: float
         Mean of training data.
@@ -81,6 +81,11 @@ def MSLL(y_true,y_pred,sigma,y_train_mean,y_train_sigma):
     float
         MSLL value for inputs.
     """
+    inputs = [y_true,y_pred,sigma]
+    for i in inputs:
+        if len(i.shape) > 1:
+            raise ValueError("Data must be 1-dimensional")
+            
     #SLL = (0.5 * np.log(2 * np.pi * sigma**2) +
     #                (y_true - y_pred)**2 / (2 * sigma**2) -
     #                (y_true - np.mean(y_true))**2 /
