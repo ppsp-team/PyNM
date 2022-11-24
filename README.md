@@ -34,7 +34,7 @@ $ pip install pynm
 **Installation with R**
 
 If you are using a GAMLSS.
-- Must first have R installed and packages:
+- Must first have R (v4.2.2) installed and packages:
      - gamlss
      - gamlss.dist
      - gamlss.data
