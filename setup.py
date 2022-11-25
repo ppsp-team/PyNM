@@ -3,7 +3,7 @@ from setuptools import setup
 
 setup(
     name="pynm",
-    version="1.0.0b9",
+    version="1.0.0b10",
     author="Annabelle HARVEY, Guillaume DUMAS",
     author_email="annabelle.harvey@umontreal.ca, guillaume.dumas@ppsp.team",
     description=("Python implementation of Normative Modelling", 
@@ -28,8 +28,8 @@ setup(
         'matplotlib',
         'numpy',
         'pandas >= 1.1.5',
-        'rpy2 >= 3.1.0',
-        'scikit_learn >= 0.24.1',
+        'rpy2 >= 3.5.4',
+        'scikit_learn >= 1.1.2',
         'scipy >= 1.5.3',
         'seaborn',
         'statsmodels >= 0.13.2',
