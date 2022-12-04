@@ -3,7 +3,7 @@ from setuptools import setup
 
 setup(
     name="pynm",
-    version="1.0.0b10",
+    version="1.0.1",
     author="Annabelle HARVEY, Guillaume DUMAS",
     author_email="annabelle.harvey@umontreal.ca, guillaume.dumas@ppsp.team",
     description=("Python implementation of Normative Modelling", 
@@ -14,7 +14,7 @@ setup(
     url="https://github.com/ppsp-team/PyNM",
     packages=['pynm', 'test', 'pynm/models'],
     classifiers=[
-        "Development Status :: 4 - Beta",
+        "Development Status :: 5 - Production/Stable",
         "Topic :: Scientific/Engineering :: Bio-Informatics",
         "License :: OSI Approved :: BSD License",
     ],
@@ -25,15 +25,15 @@ setup(
     },
    install_requires=[
         'gpytorch >= 1.4.0',
-        'matplotlib',
-        'numpy',
+        'matplotlib >= 3.3.4',
+        'numpy >= 1.19.5',
         'pandas >= 1.1.5',
         'rpy2 >= 3.5.4',
         'scikit_learn >= 1.1.2',
         'scipy >= 1.5.3',
-        'seaborn',
+        'seaborn >= 0.12.0',
         'statsmodels >= 0.13.2',
-        'torch >= 1.8.0',
-        'tqdm',
+        'torch >= 1.12.1',
+        'tqdm >= 4.59.0',
    ],
 )
