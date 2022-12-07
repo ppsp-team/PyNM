@@ -19,11 +19,11 @@ authors:
     affiliation: "1, 2"
   - name: Dumas, Guillaume
     orcid: 0000-0002-2253-1844
-    affiliation: "1, 3"
+    affiliation: "2, 3"
 affiliations:
- - name: Centre de Recherche du CHU Sainte-Justine, Université de Montréal, QC, Canada
-   index: 1
  - name: Centre de Recherche de l’Institut Universitaire de Gériatrie de Montréal, Université de Montréal, QC, Canada
+   index: 1
+ - name: Centre de Recherche du CHU Sainte-Justine, Université de Montréal, QC, Canada
    index: 2
  - name: Mila - Quebec AI Institute, Université de Montréal, QC, Canada
    index: 3
@@ -36,7 +36,7 @@ bibliography: paper.bib
 
 The majority of studies in neuroimaging and psychiatry are focussed on case-control analysis [@marquand:2019]. However, case-control relies on well-defined groups which is more the exception than the rule in biology. Psychiatric conditions are diagnosed based on symptoms alone, which makes for heterogeneity at the biological level [@marquand:2016]. Relying on mean differences obscures this heterogeneity and the resulting loss of information can produce unreliable results or misleading conclusions [@loth:2021].
 
-Normative Modeling is an emerging alternative to case-control analyses, that seeks to parse heterogeneity by looking at how individuals deviate from the normal trajectory. Analogous to normative growth charts, normative models map the mean and variance of a trait for a given population against a set of explanatory variables (usually including age). Statistical inferences at the level of the individual participant can then be obtained with respect to the normative range [@marquand:2019]. This framework can detect patterns of abnormality that might not be consistent across the population, and recasts disease as an extreme of the normal range.
+Normative Modeling is an emerging alternative to case-control analyses that seeks to parse heterogeneity by looking at how individuals deviate from the normal trajectory. Analogous to normative growth charts, normative models map the mean and variance of a trait for a given population against a set of explanatory variables (usually including age). Statistical inferences at the level of the individual participant can then be obtained with respect to the normative range [@marquand:2019]. This framework can detect patterns of abnormality that might not be consistent across the population, and recasts disease as an extreme deviation from the normal range rather than a separate group.
 
 PyNM is a lightweight python implementation of Normative Modeling making it approachable and easy to adopt. The package provides:
 
@@ -52,9 +52,9 @@ PyNM is a lightweight python implementation of Normative Modeling making it appr
 
 The basic idea underpinning Normative Modeling is to fit a model on the controls (or a subset of them) of a dataset, and then apply it to the rest of the participants. The difference between the model’s prediction and the ground truth for the unseen participants relative to the variance around the prediction quantifies their deviation from the normal. While simple in concept, implementing Normative Modeling requires some care in managing the dataset and choosing an appropriate model.
 
-In principle, any model that estimates both the mean and variance of the predictive distribution could be used for Normative Modeling. However, in practice, we impose more constraints. First and foremost, the assumptions of the model must be met by the data. Second, we want to distinguish between epistemic and aleatoric uncertainty. Epistemic or systematic uncertainty stems from how information about the distribution is collected, whereas aleatoric uncertainty is intrinsic to the distribution and represents the true variation of the population [@xu:2021].
+In principle, any model that estimates both the mean and variance of the predictive distribution could be used for Normative Modeling. However, in practice, we impose more constraints. First and foremost, the assumptions of the model must be met by the data. Second, it is important to distinguish between epistemic and aleatoric uncertainty. Epistemic or systematic uncertainty stems from how information about the distribution is collected, whereas aleatoric uncertainty is intrinsic to the distribution and represents the true variation of the population [@xu:2021].
 
-To the author’s knowledge, PCNtoolkit [@pcntoolkit] is the only other available package for Normative Modeling. It implements methods that have been applied in a range of psychiatry and neuroimaging studies including [@kia:2020; @kia:2021; @rutherford:2022a; @fraza:2021], and is accompanied by thorough [tutorials](https://pcntoolkit.readthedocs.io/en/latest/pages/BLR_normativemodel_protocol.html), a [forum](https://gitter.im/predictive-clinical-neuroscience/community), and a framework for Normative Modeling in computational psychiatry [@rutherford:2022b]. While PCNtoolkit offers more advanced functionality, PyNM emphasizes being lightweight and easy to use, and implements different models than PCNtookit including the GAMLSS which is a powerful option for Normative Modeling [@dinga:2021].
+To the author’s knowledge, PCNtoolkit [@pcntoolkit] is the only other available package for Normative Modeling. It implements methods that have been applied in a range of psychiatry and neuroimaging studies [@kia:2020; @kia:2021; @rutherford:2022a; @fraza:2021], and is accompanied by thorough [tutorials](https://pcntoolkit.readthedocs.io/en/latest/pages/BLR_normativemodel_protocol.html), a [forum](https://gitter.im/predictive-clinical-neuroscience/community), and a framework for Normative Modeling in computational psychiatry [@rutherford:2022b]. While PCNtoolkit offers more advanced functionality, PyNM emphasizes being lightweight and easy to use, and implements different models than PCNtoolkit including a wrapper for the GAMLSS package from R, which is a powerful option for Normative Modeling [@dinga:2021].
 
 PyNM is intended to take users from their first steps in Normative Modeling to using advanced models on complex datasets. Crucially, it manages the dataset and has interactive tutorials – making it quick for new users to try the method either on their own data or on provided simulated data. The tutorials motivate the use of each model and highlight their limitations to help clarify which model is appropriate for what data, and built-in plotting and evaluation functions (\autoref{fig:Figure 1}) make it simple to check the validity of the model output. The package includes five models from various backends in a unified interface, including a wrapper for GAMLSS [@rigby:2005] from R that is otherwise not yet available in python, and the selected models cover many settings including big data and heteroskedasticity.
 
@@ -91,7 +91,7 @@ data = m.data
 
 # Acknowledgements
 
-The development of this code has benefited from useful discussions with Andre Marquand, Thomas Wolfers, Eva Loth, Jumana Amad, Richard Bethlehem, and Michael Lombardo.
+The development of this code has benefited from useful discussions with Andre Marquand, Thomas Wolfers, Eva Loth, Jumana Amad, Richard Bethlehem, and Michael Lombardo. The authors also want to thank the two reviewers Saige Rutherford ([@saigerutherford](https://github.com/saigerutherford)) and Seyed Mostafa Kia ([@smkia](https://github.com/smkia)) for their insightful feedback.
 
 Funding: This work is supported by IVADO, FRQS, CFI, MITACS, and Compute Canada.
 
