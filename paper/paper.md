@@ -91,7 +91,7 @@ data = m.data
 
 # Acknowledgements
 
-The development of this code has benefited from useful discussions with Andre Marquand, Thomas Wolfers, Eva Loth, Jumana Amad, Richard Bethlehem, and Michael Lombardo. The authors also want to thank the two reviewers Saige Rutherford ([@saigerutherford](https://github.com/saigerutherford)) and Seyed Mostafa Kia ([@smkia](https://github.com/smkia)) for their insightful feedback.
+The development of this code has benefited from useful discussions with Andre Marquand, Thomas Wolfers, Eva Loth, Jumana Amad, Richard Bethlehem, and Michael Lombardo. The authors also want to thank the two reviewers Saige Rutherford ([`@saigerutherford`](https://github.com/saigerutherford)) and Seyed Mostafa Kia ([`@smkia`](https://github.com/smkia)) for their insightful feedback.
 
 Funding: This work is supported by IVADO, FRQS, CFI, MITACS, and Compute Canada.
 
