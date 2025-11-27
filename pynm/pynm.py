@@ -160,6 +160,9 @@ class PyNM:
         self.RMSE_GAMLSS = None
         self.SMSE_GAMLSS = None
         self.MSLL_GAMLSS = None
+        self.AIC_GAMLSS = None
+        self.BIC_GAMLSS = None
+
 
         if seed is not None:
             np.random.seed(seed)
@@ -733,7 +736,9 @@ class PyNM:
                 y_pred = means.numpy()
                 y_true = score
                 residuals = (y_true - y_pred).astype(float)
-
+            
+            self.AIC_GAMLSS=aic 
+            self.BIC_GAMLSS=bic
             self.data['GP_pred'] = y_pred
             self.data['GP_sigma'] = sigma.numpy()
             self.data['GP_residuals'] = residuals
@@ -744,7 +749,7 @@ class PyNM:
             self.MSLL_GP = msll
 
     
-    def gamlss_normative_model(self,mu=None,sigma=None,nu=None,tau=None,family='SHASHo2',method='RS',cv_folds=1):
+    def gamlss_normative_model(self,mu=None,sigma=None,nu=None,tau=None,train_col=None,family='SHASHo2',method='RS',cv_folds=1):
         """Compute GAMLSS normative model.
         
         Parameters
@@ -785,13 +790,13 @@ class PyNM:
             nan_cols = ['LOESS_pred','LOESS_residuals','LOESS_z','LOESS_rank','LOESS_sigma',
             'Centiles_pred','Centiles_residuals','Centiles_z','Centiles','Centiles_rank','Centiles_sigma',
             'Centiles_95','Centiles_5','Centiles_32','Centiles_68']
-            gamlss_data = self.data[[c for c in self.data.columns if c not in nan_cols]]
-
+            gamlss_data = self.data[[c for c in train_col if c not in nan_cols]]
+            
             if cv_folds == 1:
                 gamlss.fit(gamlss_data[ctr_mask])
                 
-                mu_pred = gamlss.predict(gamlss_data,what='mu')
-                sigma_pred = gamlss.predict(gamlss_data,what='sigma')
+                mu_pred,sigma_pred, res,z_scores, q_lower, q_upper, sigma, tau, nu, aic, bic = gamlss.predict(gamlss_data,self.score,what='mu')
+  
 
                 # For MSLL
                 y_train_mean = np.mean(self.data[self.score].values[ctr_mask])
@@ -818,8 +823,8 @@ class PyNM:
                     
                     gamlss.fit(X_train)
 
-                    cv_mu_pred = gamlss.predict(X_test,what='mu')
-                    cv_sigma_pred = gamlss.predict(X_test,what='sigma')
+                    cv_mu_pred,cv_sigma_pred, res, z_scores, q_lower, q_upper, sigma, tau, nu, aic, bic = gamlss.predict(X_test)
+
 
                     r = RMSE(X_test[self.score].values,cv_mu_pred)
                     s = SMSE(X_test[self.score].values,cv_mu_pred)
@@ -840,14 +845,18 @@ class PyNM:
                 mu_pred = gamlss.predict(gamlss_data,what='mu')
                 sigma_pred = gamlss.predict(gamlss_data,what='sigma')
 
-            self.data['GAMLSS_pred'] = mu_pred
+            self.data['GAMLSS_pred'] = mu_pred 
             self.data['GAMLSS_sigma'] = sigma_pred
-            self.data['GAMLSS_residuals'] = self.data[self.score] - self.data['GAMLSS_pred']
-            self.data['GAMLSS_z'] = self.data['GAMLSS_residuals']/self.data['GAMLSS_sigma']
+            self.data['GAMLSS_z'] = z_scores
+            self.data['GAMLSS_lower_error'] = q_lower
+            self.data['GAMLSS_upper_error'] = q_upper
 
             self.RMSE_GAMLSS = rmse
             self.SMSE_GAMLSS = smse
             self.MSLL_GAMLSS = msll
+
+            self.AIC_GAMLSS = aic
+            self.BIC_GAMLSS = bic
     
     def report(self):
         """ Prints the values of each metric (SMSE, RMSE, MSLL) for the models that have been run.
