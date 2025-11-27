@@ -176,9 +176,10 @@ class GAMLSS:
                                 family={self.family},
                                 data=train_data,
                                 method={self.method})''')
-                    
-    def predict(self,test_data,what='mu'):
-        """Predict from fitted gamlss model.
+
+
+    def predict(self, test_data,score, what='mu'):
+        """Predict from fitted gamlss model and retrieve AIC and BIC.
         
         Parameters
         ----------
@@ -189,6 +190,45 @@ class GAMLSS:
         """
         ro.globalenv['model'] = self.model
         ro.globalenv['test_data'] = test_data
+        params = r(f'''predictAll(model,newdata=test_data)''')
 
-        res = r(f'''predict(model,newdata=test_data,parameter="{what}")''')
-        return res
+        
+        ro.globalenv['params'] = params
+        
+        percentiles = r(f'p{self.family}(test_data${score}, params$mu, params$sigma, params$nu, params$tau)')
+        ro.globalenv['percentiles'] = percentiles
+
+        mu_pred = r(f'''predict(model, newdata=test_data, parameter="{what}")''')
+        #sigma_pred = r(f'''predict(model, newdata=test_data, parameter="{what}", se.fit=TRUE)''')
+        sigma_pred= r(f'''predict(model, newdata=test_data, parameter="sigma", type="response")''')
+        res = r(f'''resid(model)''')
+
+
+        quantiles = r(f'q{self.family}(pnorm(1), params$mu,params$sigma, params$nu,params$tau)')
+        ro.globalenv['quantiles'] = quantiles
+
+        sigma = r(f'''params$sigma''')
+        tau = r(f'''params$tau''')
+        nu = r(f'''params$nu''')
+        z_scores = r(f'''qnorm(percentiles)''')
+
+        # Compute AIC and BIC
+        aic = r('AIC(model)')
+        bic = r('BIC(model)')
+        if self.family == 'GA':
+            q_lower = r(f'q{self.family}(0.025, params$mu, params$sigma)')
+            q_upper = r(f'q{self.family}(0.975, params$mu, params$sigma)')
+        else:
+            q_lower = r(f'q{self.family}(0.025, params$mu, params$sigma, params$nu, params$tau)')
+            q_upper = r(f'q{self.family}(0.975, params$mu, params$sigma, params$nu, params$tau)')
+        prediction_interval = ro.r['data.frame'](lower=q_lower, upper=q_upper)
+            
+        return mu_pred,sigma_pred, res, z_scores, q_lower, q_upper, sigma, tau, nu, aic, bic
+
+    def summary(self):
+        """Generate and return the summary of the fitted GAMLSS model."""
+        ro.globalenv['fitted_model'] = self.model  # Store the fitted model in the R global environment
+        model_summary = r('summary(fitted_model)')  # Use R's summary function on the fitted model
+
+        print(model_summary)  # Print the summary to the console
+        return model_summary  # Return the summary object for further use or inspection
