@@ -736,9 +736,7 @@ class PyNM:
                 y_pred = means.numpy()
                 y_true = score
                 residuals = (y_true - y_pred).astype(float)
-            
-            self.AIC_GAMLSS=aic 
-            self.BIC_GAMLSS=bic
+
             self.data['GP_pred'] = y_pred
             self.data['GP_sigma'] = sigma.numpy()
             self.data['GP_residuals'] = residuals
@@ -794,7 +792,7 @@ class PyNM:
             
             if cv_folds == 1:
                 gamlss.fit(gamlss_data[ctr_mask])
-                
+                self.gamlss_model = gamlss
                 mu_pred,sigma_pred, res,z_scores, q_lower, q_upper, sigma, tau, nu, aic, bic = gamlss.predict(gamlss_data,self.score,what='mu')
   
 
@@ -841,6 +839,7 @@ class PyNM:
                 print(f'Average: RMSE={rmse:.3f} - SMSE={smse:.3f} - MSLL={msll:.3f}')
 
                 gamlss.fit(gamlss_data[ctr_mask])
+                self.gamlss_model = gamlss
                 
                 mu_pred = gamlss.predict(gamlss_data,what='mu')
                 sigma_pred = gamlss.predict(gamlss_data,what='sigma')
@@ -850,6 +849,14 @@ class PyNM:
             self.data['GAMLSS_z'] = z_scores
             self.data['GAMLSS_lower_error'] = q_lower
             self.data['GAMLSS_upper_error'] = q_upper
+            # Prediction without database effect (for visualization)
+            #gamlss_data_ref = gamlss_data.copy()
+            #ref_db = gamlss_data['database'].mode()[0]
+            #gamlss_data_ref['database'] = ref_db
+            #mu_pred_ref, _, _, _, q_lower_ref, q_upper_ref, _, _, _, _, _ = gamlss.predict(gamlss_data_ref, self.score, what='mu')
+            #self.data['GAMLSS_pred_ref'] = mu_pred_ref
+            #self.data['GAMLSS_lower_ref'] = q_lower_ref
+            #self.data['GAMLSS_upper_ref'] = q_upper_ref
 
             self.RMSE_GAMLSS = rmse
             self.SMSE_GAMLSS = smse
@@ -953,12 +960,12 @@ class PyNM:
             tmp=self.data.sort_values(gamlss_xaxis)
             if len(self.confounds) == 1:
                 ax.plot(tmp[gamlss_xaxis], tmp['GAMLSS_pred'], '-k',label='Prediction')
-                ax.plot(tmp[gamlss_xaxis], tmp['GAMLSS_pred'] - 1.96*tmp['GAMLSS_sigma'], '--k')
-                ax.plot(tmp[gamlss_xaxis], tmp['GAMLSS_pred'] + 1.96*tmp['GAMLSS_sigma'], '--k',label='95% CI')
+                ax.plot(tmp[gamlss_xaxis], tmp['GAMLSS_lower_error'] , '--k')
+                ax.plot(tmp[gamlss_xaxis], tmp['GAMLSS_upper_error'], '--k',label='95% CI')
             else:
                 ax.scatter(tmp[gamlss_xaxis], tmp['GAMLSS_pred'], label='Prediction',color='black',marker='_',s=25)
-                ax.scatter(tmp[gamlss_xaxis], tmp['GAMLSS_pred'] - 1.96*tmp['GAMLSS_sigma'],color='black',s=0.2)
-                ax.scatter(tmp[gamlss_xaxis], tmp['GAMLSS_pred'] + 1.96*tmp['GAMLSS_sigma'], label='95% CI',color='black',s=0.2)
+                ax.scatter(tmp[gamlss_xaxis], tmp['GAMLSS_pred'],color='black',s=0.2)
+                ax.scatter(tmp[gamlss_xaxis], tmp['GAMLSS_pred'], label='95% CI',color='black',s=0.2)
             handles, labels = ax.get_legend_handles_labels()
             ax.legend(handles, labels)
             ax.set_title(f"{kind} SMSE={self.SMSE_GAMLSS:.3f} - MSLL={self.MSLL_GAMLSS:.3f}")

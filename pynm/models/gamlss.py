@@ -198,7 +198,9 @@ class GAMLSS:
         percentiles = r(f'p{self.family}(test_data${score}, params$mu, params$sigma, params$nu, params$tau)')
         ro.globalenv['percentiles'] = percentiles
 
-        mu_pred = r(f'''predict(model, newdata=test_data, parameter="{what}")''')
+
+        #mu_pred = r(f'''predict(model, newdata=test_data, parameter="{what}", type="response")''')
+        #mu_pred = r(f'''params$mu''')
         #sigma_pred = r(f'''predict(model, newdata=test_data, parameter="{what}", se.fit=TRUE)''')
         sigma_pred= r(f'''predict(model, newdata=test_data, parameter="sigma", type="response")''')
         res = r(f'''resid(model)''')
@@ -218,9 +220,12 @@ class GAMLSS:
         if self.family == 'GA':
             q_lower = r(f'q{self.family}(0.025, params$mu, params$sigma)')
             q_upper = r(f'q{self.family}(0.975, params$mu, params$sigma)')
+            # ligne 223 - manque une parenthèse fermante
+            mu_pred = r(f'q{self.family}(0.5, params$mu, params$sigma)')  # ajoute ) à la fin
         else:
             q_lower = r(f'q{self.family}(0.025, params$mu, params$sigma, params$nu, params$tau)')
             q_upper = r(f'q{self.family}(0.975, params$mu, params$sigma, params$nu, params$tau)')
+            mu_pred = r(f'q{self.family}(0.5, params$mu, params$sigma, params$nu, params$tau)')
         prediction_interval = ro.r['data.frame'](lower=q_lower, upper=q_upper)
             
         return mu_pred,sigma_pred, res, z_scores, q_lower, q_upper, sigma, tau, nu, aic, bic
